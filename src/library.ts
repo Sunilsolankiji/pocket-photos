@@ -9,8 +9,12 @@ const { mediaType, extractMeta } = require('./meta');
 
 const SKIP_DIRS = new Set(['system volume information', '$recycle.bin', 'lost.dir', 'android', 'node_modules']);
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const entries = (value: any): [string, any][] => Object.entries(value);
+const values = (value: any): any[] => Object.values(value);
 
 class HttpError extends Error {
+  status: number;
+
   constructor(status, message) {
     super(message);
     this.status = status;
@@ -109,6 +113,8 @@ function searchText(i) {
 }
 
 class Library {
+  [key: string]: any;
+
   constructor(cfg, store, thumbs, tools) {
     this.cfg = cfg;
     this.store = store;
@@ -145,8 +151,8 @@ class Library {
 
   /** folders: { "DCIM": "alice", "Users/bob": "bob", "": "owner" } – the longest matching folder wins. */
   setOwners(folders) {
-    this.owners = Object.entries(folders)
-      .map(([f, u]) => [normFolder(f).toLowerCase(), u])
+    this.owners = entries(folders)
+      .map(([f, u]): [string, string] => [normFolder(f).toLowerCase(), String(u)])
       .sort((a, b) => b[0].length - a[0].length);
     this.userLists.clear();
   }
@@ -196,7 +202,7 @@ class Library {
   }
 
   makeItem(rel, stat, meta, type) {
-    const item = {
+    const item: Record<string, any> = {
       id: idFor(rel), path: rel, name: path.posix.basename(rel), type,
       size: stat.size, mtime: Math.round(stat.mtimeMs), taken: meta.taken,
     };
@@ -213,12 +219,12 @@ class Library {
 
   sortedList() {
     if (!this.sorted) {
-      this.sorted = Object.values(this.items).sort((a, b) => b.taken - a.taken || (a.path < b.path ? 1 : -1));
+      this.sorted = values(this.items).sort((a, b) => b.taken - a.taken || (a.path < b.path ? 1 : -1));
     }
     return this.sorted;
   }
 
-  query({ user, view = 'all', album = '', q = '', offset = 0, limit = 200 } = {}) {
+  query({ user, view = 'all', album = '', q = '', offset = 0, limit = 200 }: { user?: string; view?: string; album?: string; q?: string; offset?: number; limit?: number } = {}) {
     let list = this.userList(user);
     if (view === 'trash') {
       list = list.filter((i) => i.trashed);
@@ -243,7 +249,7 @@ class Library {
   /** Per-user stats when `user` is given, whole-library stats (plus unassigned count) otherwise. */
   stats(user) {
     let photos = 0, videos = 0, bytes = 0, trashed = 0, favorites = 0, unassigned = 0;
-    const list = user === undefined ? Object.values(this.items) : this.userList(user);
+    const list = user === undefined ? values(this.items) : this.userList(user);
     for (const i of list) {
       if (i.trashed) trashed++;
       else if (i.type === 'video') videos++;
@@ -252,14 +258,14 @@ class Library {
       bytes += i.size || 0;
       if (user === undefined && this.ownerOf(i.path) === null) unassigned++;
     }
-    const albums = Object.values(this.albums).filter((a) => user === undefined || a.owner === user).length;
+    const albums = values(this.albums).filter((a) => user === undefined || a.owner === user).length;
     return { photos, videos, trashed, favorites, bytes, albums, ...(user === undefined ? { unassigned } : {}) };
   }
 
   /** Folders (up to 2 levels deep) that contain media, with item counts and current owner. For the admin page. */
   folderSummary() {
     const counts = new Map();
-    for (const i of Object.values(this.items)) {
+    for (const i of values(this.items)) {
       const parts = i.path.split('/').slice(0, -1);
       for (let d = 1; d <= Math.min(2, parts.length); d++) {
         const f = parts.slice(0, d).join('/');
@@ -325,7 +331,7 @@ class Library {
       if (seen.size === 0 && known > 0) {
         st.error = 'No media found - is the drive mounted? Skipped removing missing items.';
       } else {
-        for (const [id, it] of Object.entries(this.items)) {
+        for (const [id, it] of entries(this.items)) {
           if (!seen.has(id) && (it.added || 0) < scanStart) {
             await this.removeEntry(id);
             st.removed++;
@@ -438,7 +444,7 @@ class Library {
 
   async removeEntry(id) {
     delete this.items[id];
-    for (const a of Object.values(this.albums)) {
+    for (const a of values(this.albums)) {
       const idx = a.items.indexOf(id);
       if (idx >= 0) a.items.splice(idx, 1);
       if (a.cover === id) a.cover = null;
@@ -464,7 +470,7 @@ class Library {
     return n;
   }
 
-  async batch(ids, action, opts = {}, user) {
+  async batch(ids, action, opts: { album?: string } = {}, user) {
     if (!Array.isArray(ids)) throw new HttpError(400, 'ids must be an array');
     ids = [...new Set(ids)].filter((id) => this.item(id) && (user === undefined || this.owns(user, this.items[id])));
     const now = Date.now();
@@ -505,7 +511,7 @@ class Library {
 
   async purgeTrash() {
     const cutoff = Date.now() - this.cfg.trashDays * 86400000;
-    const old = Object.values(this.items).filter((i) => num(i.trashed) && i.trashed < cutoff).map((i) => i.id);
+    const old = values(this.items).filter((i) => num(i.trashed) && i.trashed < cutoff).map((i) => i.id);
     if (old.length && !this.readOnly) await this.deleteForever(old);
     return old.length;
   }
@@ -513,7 +519,7 @@ class Library {
   // ---------- albums (each album belongs to one user) ----------
 
   listAlbums(user) {
-    return Object.values(this.albums)
+    return values(this.albums)
       .filter((a) => a.owner === user)
       .map((a) => {
         const live = a.items.filter((id) => this.items[id] && !this.items[id].trashed && this.owns(user, this.items[id]));
@@ -556,7 +562,7 @@ class Library {
   }
 
   deleteUserAlbums(user) {
-    for (const [id, a] of Object.entries(this.albums)) if (a.owner === user) delete this.albums[id];
+    for (const [id, a] of entries(this.albums)) if (a.owner === user) delete this.albums[id];
     this.touched();
   }
 }

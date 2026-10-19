@@ -38,7 +38,7 @@ function dateFromName(name) {
 async function ffprobe(bin, file) {
   const out = await run(bin, ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', file], { timeout: 60000 });
   const j = JSON.parse(out.toString('utf8'));
-  const res = {};
+  const res: Record<string, any> = {};
   const v = (j.streams || []).find((s) => s.codec_type === 'video');
   if (v) {
     res.width = v.width;
@@ -68,8 +68,8 @@ async function ffprobe(bin, file) {
  * Collect metadata for a media file.
  * tools: { ffprobe: string|null }
  */
-async function extractMeta(file, type, stat, name, tools = {}) {
-  const meta = {};
+async function extractMeta(file, type, stat, name, tools: { ffprobe?: string | null } = {}) {
+  const meta: Record<string, any> = {};
   if (type === 'image') {
     try {
       Object.assign(meta, (await readImageInfo(file)) || {});

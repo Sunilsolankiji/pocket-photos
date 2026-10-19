@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "None",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "./public/src",
+    "ignoreDeprecations": "6.0",
+    "strict": false,
+    "skipLibCheck": true,
+    "outFile": "public-assets/app.js",
+    "noEmitOnError": true,
+    "noCheck": true
+  },
+  "files": [
+    "public/src/app.ts",
+    "public/src/grid.ts",
+    "public/src/viewer.ts",
+    "public/src/pages.ts",
+    "public/src/search.ts",
+    "public/src/uploads.ts",
+    "public/src/init.ts"
+  ]
+}

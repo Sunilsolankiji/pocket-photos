@@ -11,6 +11,8 @@ const ORIENT_FILTER = {
 
 /** Generates and caches JPEG thumbnails/previews with ffmpeg. */
 class Thumbs {
+  [key: string]: any;
+
   constructor(cfg, tools) {
     this.cfg = cfg;
     this.tools = tools;

@@ -16,7 +16,8 @@ const { ensureCert, readCert, describeCert, DuckDns, publicIp } = require('./rem
 const { hasTool } = require('./proc');
 const { mimeOf, isWebImage } = require('./meta');
 const { Router, authorizeRoute } = require('./router');
-const { version } = require('../package.json');
+const { ROOT } = require('./config');
+const { version } = require(path.join(ROOT, 'package.json'));
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const STATIC_MIME = {
@@ -42,7 +43,7 @@ function sendJson(res, status, obj, headers = {}) {
   res.end(body);
 }
 
-function readJson(req, limit = 1024 * 1024, deadline = 30000) {
+function readJson(req, limit = 1024 * 1024, deadline = 30000): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -75,7 +76,7 @@ function readJson(req, limit = 1024 * 1024, deadline = 30000) {
   });
 }
 
-async function sendFile(req, res, file, { mime, downloadName, maxAge = 0 } = {}) {
+async function sendFile(req, res, file, { mime, downloadName, maxAge = 0 }: { mime?: string; downloadName?: string; maxAge?: number } = {}) {
   let st;
   try {
     st = await fsp.stat(file);
@@ -125,7 +126,9 @@ async function sendFile(req, res, file, { mime, downloadName, maxAge = 0 } = {})
 function lanAddresses() {
   try {
     const out = [];
-    for (const list of Object.values(os.networkInterfaces())) {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      const list = interfaces[name];
       for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push(a.address);
     }
     return out;
@@ -396,7 +399,7 @@ async function createApp(cfg) {
 
   route('GET', '/api/media/:id', async (req, res, p) => {
     const it = lib.get(p.id, req.user);
-    const albums = Object.values(lib.albums).filter((a) => a.owner === req.user && a.items.includes(it.id)).map((a) => ({ id: a.id, name: a.name }));
+    const albums = (Object.values(lib.albums) as Record<string, any>[]).filter((a) => a.owner === req.user && a.items.includes(it.id)).map((a) => ({ id: a.id, name: a.name }));
     sendJson(res, 200, { ...slim(it), path: it.path, make: it.make || null, model: it.model || null, mtime: it.mtime, added: it.added || null, albums });
   });
 
@@ -632,7 +635,7 @@ async function createApp(cfg) {
     timers.forEach(clearInterval);
     duck.stop();
     const servers = [server, tls.server].filter((s) => s && s.listening);
-    const closed = Promise.all(servers.map((s) => new Promise((r) => s.close(() => r()))));
+    const closed = Promise.all(servers.map((s) => new Promise<void>((resolve) => s.close(() => resolve()))));
     for (const s of servers) if (s.closeAllConnections) s.closeAllConnections();
     await closed;
     if (lib.scanning) await lib.scanning.catch(() => {});

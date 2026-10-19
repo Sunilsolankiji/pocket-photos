@@ -21,6 +21,13 @@ function closeViewer(fromHistory) {
   if (t) t.scrollIntoView({ block: 'nearest' });
   if (!fromHistory && history.state && history.state.viewer) history.back();
 }
+function updateFavoriteButton(favorite) {
+  const button = $('#vFav');
+  button.classList.toggle('is-favorite', favorite);
+  button.setAttribute('aria-pressed', String(favorite));
+  button.setAttribute('aria-label', favorite ? 'Remove from favorites' : 'Add to favorites');
+  button.title = favorite ? 'Remove from favorites' : 'Add to favorites';
+}
 function showItem() {
   const it = S.items[S.vi];
   if (!it) return closeViewer();
@@ -47,7 +54,7 @@ function showItem() {
   st.appendChild(el);
   const trash = S.view === 'trash';
   const ro = S.status.readOnly;
-  $('#vFav').textContent = it.fav ? '♥' : '♡';
+  updateFavoriteButton(it.fav);
   $('#vFav').classList.toggle('hidden', trash);
   $('#vAlbum').classList.toggle('hidden', trash);
   $('#vTrash').classList.toggle('hidden', trash || ro);
@@ -104,7 +111,7 @@ $('#vFav').onclick = async () => {
   try {
     await api('PATCH', `/api/media/${it.id}`, { fav: !it.fav });
     it.fav = !it.fav;
-    $('#vFav').textContent = it.fav ? '♥' : '♡';
+    updateFavoriteButton(it.fav);
     updateTile(S.vi);
   } catch (e) { toast(e.message); }
 };
@@ -147,4 +154,3 @@ $('#stage').addEventListener('touchend', (e) => {
   if (Math.abs(dx) > 60 && Math.abs(dy) < 80) step(dx < 0 ? 1 : -1);
   else if (dy > 120 && Math.abs(dx) < 80) closeViewer();
 }, { passive: true });
-

@@ -1,5 +1,9 @@
 node_modules/
+dist/
+public-assets/app.js
+public-assets/admin.js
 config.json
 library/
 .pocketphotos/
 *.pem
+/demo/

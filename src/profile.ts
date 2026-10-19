@@ -13,7 +13,6 @@ const DEFAULTS = Object.freeze({
 const EMAIL_RE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
 const PHONE_RE = /^\+?[0-9][0-9 ()-]{3,22}$/;
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-// eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 
 function text(v, field, max) {
@@ -43,7 +42,7 @@ function birthday(v) {
 /** The stored profile with defaults filled in (unknown/invalid stored values fall back to defaults). */
 function readProfile(user) {
   const p = (user && user.profile) || {};
-  const out = { ...DEFAULTS };
+  const out: Record<string, any> = { ...DEFAULTS };
   for (const k of Object.keys(DEFAULTS)) if (typeof p[k] === 'string') out[k] = p[k];
   if (!THEMES.includes(out.theme)) out.theme = DEFAULTS.theme;
   if (!ACCENTS.includes(out.accent)) out.accent = DEFAULTS.accent;
@@ -57,7 +56,7 @@ function readProfile(user) {
  * `canUseAvatar(id)` must confirm the photo belongs to this user.
  */
 function cleanUpdate(body, canUseAvatar) {
-  const out = {};
+  const out: Record<string, any> = {};
   const has = (k) => Object.hasOwn(body, k) && body[k] !== undefined;
   if (has('name')) out.name = text(body.name, 'Name', 60);
   if (has('email')) {

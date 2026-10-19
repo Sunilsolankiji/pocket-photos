@@ -12,7 +12,7 @@ function renderHeader() {
   const h = $('#viewHeader');
   const titles = { all: 'Photos', favorites: 'Favorites', videos: 'Videos' };
   if (S.view === 'album') {
-    h.innerHTML = `<button class="icon-btn" id="backAlbums" title="Back">←</button><h2 id="albumTitle">Album</h2><span id="countLbl" style="color:var(--muted)"></span>
+    h.innerHTML = `<button class="icon-btn" id="backAlbums" title="Back to albums" aria-label="Back to albums"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h11"/></svg></button><h2 id="albumTitle">Album</h2><span id="countLbl" style="color:var(--muted)"></span>
       <button class="btn" id="renameAlbum">Rename</button><button class="btn danger" id="deleteAlbum">Delete album</button>`;
     const id = S.album;
     api('GET', `/api/albums/${id}`).then((a) => { if (S.album === id) $('#albumTitle').textContent = a.name; }).catch((e) => toast(e.message));
@@ -79,10 +79,10 @@ function updateCounts() {
   if (S.items.length) return showEmpty('');
   const msgs = {
     all: S.q ? 'No results.' : `Your library is empty.<br><br>Copy photos & videos onto the drive and press <b>Rescan</b> in Settings, or use <b>Upload</b>.`,
-    favorites: 'No favorites yet. Tap ♥ on a photo to add it here.',
+    favorites: 'No favorites yet. Add photos to Favorites from the photo viewer.',
     videos: 'No videos.',
     trash: 'Trash is empty.',
-    album: 'This album is empty. Select photos in the timeline and tap ＋ to add them.',
+    album: 'This album is empty. Select photos in the timeline and use Add to album.',
   };
   showEmpty(S.q && S.view !== 'all' ? 'No results.' : msgs[S.view] || '');
 }
@@ -91,7 +91,7 @@ function tileEl(it, i) {
   const d = document.createElement('div');
   d.className = 'tile' + (S.selected.has(it.id) ? ' selected' : '');
   d.dataset.i = i;
-  d.innerHTML = `<img loading="lazy" decoding="async" alt="" draggable="false" src="${thumbUrl(it)}">${it.type === 'video' ? `<span class="badge">▶ ${it.dur ? fmtDur(it.dur) : ''}</span>` : ''}${it.fav ? '<span class="fav">♥</span>' : ''}<span class="check">✓</span>`;
+  d.innerHTML = `<img loading="lazy" decoding="async" alt="" draggable="false" src="${thumbUrl(it)}">${it.type === 'video' ? `<span class="badge"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 10 6-10 6z"/></svg>${it.dur ? fmtDur(it.dur) : ''}</span>` : ''}${it.fav ? '<span class="fav"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.1-8.8 10.3-8.8 10.3S3.2 13.9 3.2 8.8A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.8 2.4Z"/></svg></span>' : ''}<span class="check">✓</span>`;
   d.querySelector('img').onerror = function () { this.remove(); d.classList.add('noimg'); };
   return d;
 }
@@ -272,4 +272,3 @@ $('#selbar').addEventListener('click', async (e) => {
     toast(err.message);
   }
 });
-

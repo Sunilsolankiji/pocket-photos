@@ -15,49 +15,40 @@
 <body>
   <!-- Login -->
   <section id="auth" class="auth hidden">
-    <form id="authForm" class="auth-card">
-      <img src="/icon.svg" alt="" width="64" height="64">
-      <h1>PocketPhotos</h1>
-      <p id="authHint">Sign in to your library</p>
-      <input id="authUser" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="User ID" required>
-      <input id="authPass" type="password" autocomplete="current-password" placeholder="Password" required>
-      <button type="submit" class="btn primary" id="authBtn">Sign in</button>
-      <p id="authErr" class="err"></p>
-      <p id="authAdmin" class="hidden"><a href="/admin">Open admin page →</a></p>
-    </form>
+    <div id="auth-root"></div>
   </section>
 
   <div id="app" class="hidden">
     <header class="topbar" id="topbar">
-      <div class="brand"><img src="/icon.svg" alt="" width="28" height="28"><span>PocketPhotos</span></div>
+      <div class="brand"><img src="/icon.svg" alt="" width="32" height="32"><span>PocketPhotos</span></div>
       <div class="search">
         <input id="search" type="search" placeholder="Search name, date (2024-05, may), camera…" autocomplete="off">
       </div>
-      <button class="btn" id="uploadBtn" title="Upload">⇪ <span class="hide-sm">Upload</span></button>
+      <button class="btn upload-btn" id="uploadBtn" title="Upload" aria-label="Upload photos and videos"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5"/></svg><span class="hide-sm">Upload</span></button>
       <input id="fileInput" type="file" accept="image/*,video/*,.heic,.heif" multiple hidden>
       <a href="#/profile" class="avatar" id="meBtn" title="Profile"></a>
     </header>
 
     <header class="topbar selbar hidden" id="selbar">
-      <button class="icon-btn" id="selClear" title="Clear selection">✕</button>
+      <button class="icon-btn" id="selClear" title="Clear selection" aria-label="Clear selection"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       <span id="selCount">0 selected</span>
       <div class="spacer"></div>
-      <button class="icon-btn" data-act="favorite" title="Favorite">♥</button>
-      <button class="icon-btn" data-act="album" title="Add to album">＋</button>
-      <button class="icon-btn" data-act="download" title="Download">⭳</button>
-      <button class="icon-btn" data-act="removeFromAlbum" title="Remove from album">⊖</button>
-      <button class="icon-btn" data-act="restore" title="Restore">↺</button>
-      <button class="icon-btn danger" data-act="trash" title="Move to trash">🗑</button>
-      <button class="icon-btn danger" data-act="delete" title="Delete forever">✖</button>
+      <button class="icon-btn" data-act="favorite" title="Favorite" aria-label="Favorite"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.1-8.8 10.3-8.8 10.3S3.2 13.9 3.2 8.8A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.8 2.4Z"/></svg></button>
+      <button class="icon-btn" data-act="album" title="Add to album" aria-label="Add to album"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6.5h6l2 2h8v10H4z"/><path d="M12 11v5m-2.5-2.5h5"/></svg></button>
+      <button class="icon-btn" data-act="download" title="Download" aria-label="Download"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg></button>
+      <button class="icon-btn" data-act="removeFromAlbum" title="Remove from album" aria-label="Remove from album"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6.5h6l2 2h8v10H4z"/><path d="M9 13h6"/></svg></button>
+      <button class="icon-btn" data-act="restore" title="Restore" aria-label="Restore"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1.5 7M4 5v5h5"/></svg></button>
+      <button class="icon-btn danger" data-act="trash" title="Move to trash" aria-label="Move to trash"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
+      <button class="icon-btn danger" data-act="delete" title="Delete forever" aria-label="Delete forever"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3m3 0-.8 13H7.8L7 7m2.5 3.5 5 5m0-5-5 5"/></svg></button>
     </header>
 
     <nav class="sidebar" id="sidebar">
-      <a href="#/" data-view="all">🖼 <span>Photos</span></a>
-      <a href="#/favorites" data-view="favorites">♥ <span>Favorites</span></a>
-      <a href="#/videos" data-view="videos">▶ <span>Videos</span></a>
-      <a href="#/albums" data-view="albums">▤ <span>Albums</span></a>
-      <a href="#/trash" data-view="trash">🗑 <span>Trash</span></a>
-      <a href="#/settings" data-view="settings">⚙ <span>Settings</span></a>
+      <a href="#/" data-view="all"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span>Photos</span></a>
+      <a href="#/favorites" data-view="favorites"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.1-8.8 10.3-8.8 10.3S3.2 13.9 3.2 8.8A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.8 2.4Z"/></svg><span>Favorites</span></a>
+      <a href="#/videos" data-view="videos"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>Videos</span></a>
+      <a href="#/albums" data-view="albums"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M6 4h12"/></svg><span>Albums</span></a>
+      <a href="#/trash" data-view="trash"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg><span>Trash</span></a>
+      <a href="#/settings" data-view="settings"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a8 8 0 0 0 0-2l1.4-1.1-1.5-2.6-1.7.7a8 8 0 0 0-1.7-1L15.6 7h-3l-.3 2a8 8 0 0 0-1.7 1l-1.8-.7-1.5 2.6L8.7 13a8 8 0 0 0 0 2l-1.4 1.1 1.5 2.6 1.8-.7a8 8 0 0 0 1.7 1l.3 2h3l.3-2a8 8 0 0 0 1.7-1l1.7.7 1.5-2.6z"/></svg><span>Settings</span></a>
     </nav>
 
     <main id="main">
@@ -71,14 +62,14 @@
   <!-- Fullscreen viewer -->
   <div id="viewer" class="viewer hidden" tabindex="-1">
     <div class="viewer-top">
-      <button class="icon-btn" id="vClose" title="Close">←</button>
+      <button class="icon-btn" id="vClose" title="Close" aria-label="Close"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h11"/></svg></button>
       <div class="spacer"></div>
-      <button class="icon-btn" id="vInfo" title="Info">ⓘ</button>
-      <button class="icon-btn" id="vFav" title="Favorite">♡</button>
-      <button class="icon-btn" id="vAlbum" title="Add to album">＋</button>
-      <a class="icon-btn" id="vDownload" title="Download">⭳</a>
-      <button class="icon-btn" id="vRestore" title="Restore">↺</button>
-      <button class="icon-btn danger" id="vTrash" title="Move to trash">🗑</button>
+      <button class="icon-btn" id="vInfo" title="Info" aria-label="Photo information"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg></button>
+      <button class="icon-btn" id="vFav" title="Add to favorites" aria-label="Add to favorites" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.1-8.8 10.3-8.8 10.3S3.2 13.9 3.2 8.8A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.8 2.4Z"/></svg></button>
+      <button class="icon-btn" id="vAlbum" title="Add to album" aria-label="Add to album"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6.5h6l2 2h8v10H4z"/><path d="M12 11v5m-2.5-2.5h5"/></svg></button>
+      <a class="icon-btn" id="vDownload" title="Download" aria-label="Download"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg></a>
+      <button class="icon-btn" id="vRestore" title="Restore" aria-label="Restore"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1.5 7M4 5v5h5"/></svg></button>
+      <button class="icon-btn danger" id="vTrash" title="Move to trash" aria-label="Move to trash"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
     </div>
     <button class="nav prev" id="vPrev" aria-label="Previous">‹</button>
     <div class="stage" id="stage"></div>
@@ -91,12 +82,6 @@
   <div id="uploads" class="uploads hidden"></div>
   <div id="drop" class="drop hidden">Drop photos & videos to upload</div>
 
-  <script src="/app.js"></script>
-  <script src="/grid.js"></script>
-  <script src="/viewer.js"></script>
-  <script src="/pages.js"></script>
-  <script src="/search.js"></script>
-  <script src="/uploads.js"></script>
-  <script src="/init.js"></script>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

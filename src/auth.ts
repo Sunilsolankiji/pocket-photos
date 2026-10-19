@@ -11,9 +11,11 @@ const ID_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 const WINDOW = 15 * 60000;
 const MAX_PER_IP = 10;
 const MAX_REMOTE_TOTAL = 60;
+const entries = (value: any): [string, any][] => Object.entries(value);
+const values = (value: any): any[] => Object.values(value);
 
 function httpError(status, msg) {
-  const e = new Error(msg);
+  const e = new Error(msg) as Error & { status: number };
   e.status = status;
   return e;
 }
@@ -60,6 +62,8 @@ function parseCookies(header) {
 }
 
 class Auth {
+  [key: string]: any;
+
   constructor(store, { uploadDir = 'Users' } = {}) {
     this.store = store;
     this.uploadDir = normFolder(uploadDir);
@@ -72,12 +76,12 @@ class Auth {
     // Migrate the old single-password setup to a user called "owner" who owns the whole drive.
     if (d.auth && d.auth.hash && !Object.keys(d.users).length) {
       d.users.owner = { id: 'owner', salt: d.auth.salt, hash: d.auth.hash, created: Date.now(), folders: [''] };
-      for (const s of Object.values(d.sessions)) s.user = 'owner';
-      for (const a of Object.values(d.albums || {})) if (!a.owner) a.owner = 'owner';
+      for (const s of values(d.sessions)) s.user = 'owner';
+      for (const a of values(d.albums || {})) if (!a.owner) a.owner = 'owner';
       console.log('[auth] migrated the existing password to user "owner"');
     }
     delete d.auth;
-    for (const [k, s] of Object.entries(d.sessions)) if (!s.user || !d.users[s.user]) delete d.sessions[k];
+    for (const [k, s] of entries(d.sessions)) if (!s.user || !d.users[s.user]) delete d.sessions[k];
     store.save();
   }
 
@@ -97,7 +101,7 @@ class Auth {
   /** { folder: userId } for every user: their home folder plus folders assigned by the admin. */
   folderMap() {
     const map = {};
-    for (const u of Object.values(this.users)) {
+    for (const u of values(this.users)) {
       for (const f of u.folders || []) map[f] = u.id;
       map[this.homeFolder(u.id)] = u.id;
     }
@@ -111,7 +115,7 @@ class Auth {
     const clean = [...new Set(folders.map((f) => normFolder(f)))];
     const taken = this.folderMap();
     for (const f of clean) {
-      const other = taken[f] !== undefined ? taken[f] : Object.entries(taken).find(([k]) => k.toLowerCase() === f.toLowerCase())?.[1];
+      const other = taken[f] !== undefined ? taken[f] : entries(taken).find(([k]) => k.toLowerCase() === f.toLowerCase())?.[1];
       if (other && other !== id) throw httpError(409, `Folder "${f || '(whole drive)'}" already belongs to ${other}`);
     }
     u.folders = clean.filter((f) => f !== this.homeFolder(id));
@@ -120,7 +124,7 @@ class Auth {
   }
 
   // ----- user management (admin) -----
-  createUser({ id, password } = {}) {
+  createUser({ id, password }: { id?: string; password?: string } = {}) {
     id = String(id || '').trim().toLowerCase();
     if (!id) {
       do id = generateId(); while (this.users[id]);
@@ -154,9 +158,9 @@ class Auth {
     this.revokeUser(id);
   }
 
-  revokeUser(id, exceptKey) {
+  revokeUser(id, exceptKey = undefined) {
     let n = 0;
-    for (const [k, s] of Object.entries(this.store.data.sessions)) {
+    for (const [k, s] of entries(this.store.data.sessions)) {
       if (s.user === id && k !== exceptKey) {
         delete this.store.data.sessions[k];
         n++;
@@ -174,8 +178,8 @@ class Auth {
 
   listUsers() {
     const now = Date.now();
-    const sessions = Object.entries(this.store.data.sessions).filter(([, s]) => s.expires > now);
-    return Object.values(this.users).map((u) => ({
+    const sessions = entries(this.store.data.sessions).filter(([, s]) => s.expires > now);
+    return values(this.users).map((u) => ({
       id: u.id, name: (u.profile && typeof u.profile.name === 'string' && u.profile.name) || '',
       created: u.created, changed: u.changed || null, lastLogin: u.lastLogin || null,
       home: this.homeFolder(u.id), folders: u.folders || [],
@@ -308,6 +312,8 @@ const ADMIN_MAX_FAILS = 5;
  * restart signs the admin out. Cookies expire after 30 min idle / 12 h total.
  */
 class AdminAuth {
+  [key: string]: any;
+
   constructor(store) {
     this.store = store;
     this.sessions = new Map();

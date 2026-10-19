@@ -15,7 +15,7 @@ async function readHead(file, n = 256 * 1024) {
 const TYPE_SIZES = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
 
 function parseTiff(t) {
-  const res = {};
+  const res: Record<string, any> = {};
   if (t.length < 8) return res;
   const order = t.toString('latin1', 0, 2);
   if (order !== 'II' && order !== 'MM') return res;
@@ -91,7 +91,7 @@ function isSof(m) {
 
 function parseJpeg(buf) {
   if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;
-  const out = {};
+  const out: Record<string, any> = {};
   let exifDone = false;
   let i = 2;
   while (i + 4 <= buf.length) {

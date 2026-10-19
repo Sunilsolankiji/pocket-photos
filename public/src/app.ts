@@ -94,7 +94,7 @@ async function pickAlbum(ids) {
   return new Promise((res) => {
     const c = modal(`<h3>Add ${plural(ids.length, 'item')} to album</h3>
       <div class="row"><input type="text" id="newAlbumName" placeholder="New album name" maxlength="120" style="flex:1"><button class="btn primary" id="createAlbum">Create</button></div>
-      <div class="pick-list">${albums.map((a) => `<button data-id="${a.id}">${a.cover ? `<img src="${thumbUrl(a.cover)}" alt="">` : '<span style="width:40px;text-align:center">▤</span>'}<span>${esc(a.name)}<br><small style="color:var(--muted)">${plural(a.count, 'item')}</small></span></button>`).join('')}</div>
+      <div class="pick-list">${albums.map((a) => `<button data-id="${a.id}">${a.cover ? `<img src="${thumbUrl(a.cover)}" alt="">` : '<span class="album-placeholder"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M6 4h12"/></svg></span>'}<span>${esc(a.name)}<br><small style="color:var(--muted)">${plural(a.count, 'item')}</small></span></button>`).join('')}</div>
       <div class="row" style="justify-content:flex-end"><button class="btn" id="cancelPick">Cancel</button></div>`, () => res(false));
     const create = async () => {
       const name = $('#newAlbumName').value.trim();

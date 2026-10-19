@@ -42,13 +42,7 @@
     <p class="muted" style="margin:0">This page only opens on this phone (via <code>localhost</code>) and is protected by an admin password. Nobody on Wi-Fi or the internet can reach it.</p>
 
     <section class="card hidden" id="gate">
-      <h3 id="gateTitle">Admin sign-in</h3>
-      <p class="muted" id="gateText" style="margin-top:0"></p>
-      <form id="gateForm" class="grid2">
-        <input type="password" id="gatePass" placeholder="Admin password or PIN" autocomplete="current-password" minlength="6" required>
-        <input type="password" id="gatePass2" placeholder="Repeat it" autocomplete="new-password" minlength="6" class="hidden">
-        <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit" id="gateBtn">Sign in</button><span class="err" id="gateErr"></span></div>
-      </form>
+      <div id="gate-root"></div>
     </section>
 
     <div id="main" class="hidden" style="display:contents">
@@ -78,6 +72,6 @@
 
   <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
   <div id="toast" class="toast hidden"></div>
-  <script src="/admin.js"></script>
+  <script type="module" src="/src/admin-main.tsx"></script>
 </body>
 </html>

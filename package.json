@@ -2,18 +2,36 @@
   "name": "pocket-photos",
   "version": "1.0.0",
   "description": "Self-hosted Google Photos-like server for photos and videos. Runs on Android (Termux) with an external SSD, or any machine with Node.js.",
-  "main": "server.js",
+  "main": "dist/server.js",
   "bin": {
-    "pocket-photos": "server.js"
+    "pocket-photos": "dist/server.js"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test",
-    "check": "node --check server.js && node --check src/app.js && node --check src/auth.js && node --check src/config.js && node --check src/exif.js && node --check src/library.js && node --check src/meta.js && node --check src/net.js && node --check src/proc.js && node --check src/profile.js && node --check src/remote.js && node --check src/router.js && node --check src/store.js && node --check src/thumbs.js && node --check public/app.js && node --check public/grid.js && node --check public/viewer.js && node --check public/pages.js && node --check public/search.js && node --check public/uploads.js && node --check public/init.js && node --check public/admin.js"
+    "build": "npm run check && tsc -p tsconfig.server.json && tsc -p tsconfig.frontend.json && tsc -p tsconfig.admin.json && vite build",
+    "dev": "concurrently -k -n server,vite -c cyan,magenta \"tsx watch server.ts\" \"vite --host 0.0.0.0\"",
+    "dev:server": "tsx watch server.ts",
+    "dev:frontend": "vite --host 0.0.0.0",
+    "start": "node dist/server.js",
+    "test": "npm run build && tsx --test",
+    "check": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.frontend.json --noEmit && tsc -p tsconfig.admin.json --noEmit && tsc -p tsconfig.ui.json",
+    "lint": "eslint ."
   },
   "engines": {
-    "node": ">=18.15"
+    "node": ">=22.12"
   },
   "license": "MIT",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^26.6.5",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "preact": "^11.0.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4"
+  }
 }

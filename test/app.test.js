@@ -11,7 +11,7 @@ const { execFileSync } = require('child_process');
 const { parseJpeg, parseExifDate } = require('../src/exif');
 const { dateFromName } = require('../src/meta');
 const { loadConfig } = require('../src/config');
-const { createApp } = require('../src/app');
+const { createApp } = require('../dist/src/app.js');
 const { slim } = require('../src/library');
 
 const FFMPEG = process.env.PP_FFMPEG || 'ffmpeg';
@@ -276,14 +276,21 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   assert.strictEqual(r.status, 200);
   const html = r.buf.toString();
   assert.match(html, /PocketPhotos/);
-  let scriptPosition = -1;
-  for (const script of ['/app.js', '/grid.js', '/viewer.js', '/pages.js', '/search.js', '/uploads.js', '/init.js']) {
-    const position = html.indexOf(`<script src="${script}"></script>`);
-    assert.ok(position > scriptPosition, `${script} loads in order`);
-    scriptPosition = position;
-    r = await request(base, 'GET', script);
-    assert.strictEqual(r.status, 200, `${script} is served`);
+  const appScript = html.match(/<script type="module"[^>]+src="([^"]+\.js)"[^>]*><\/script>/);
+  assert.ok(appScript, 'production HTML references its bundled application');
+  r = await request(base, 'GET', appScript[1]);
+  assert.strictEqual(r.status, 200, 'bundled application is served');
+  for (const asset of ['/app.js', '/admin.js', '/icon.svg', '/manifest.webmanifest']) {
+    r = await request(base, 'GET', asset);
+    assert.strictEqual(r.status, 200, `${asset} is served`);
   }
+  r = await request(base, 'GET', '/admin');
+  const adminHtml = r.buf.toString();
+  assert.match(adminHtml, /PocketPhotos Admin/);
+  const adminScript = adminHtml.match(/<script type="module"[^>]+src="([^"]+\.js)"[^>]*><\/script>/);
+  assert.ok(adminScript, 'admin HTML references its bundled application');
+  r = await request(base, 'GET', adminScript[1]);
+  assert.strictEqual(r.status, 200, 'bundled admin application is served');
   r = await request(base, 'GET', '/x', { raw: '/..%2fsrc%2fapp.js' });
   assert.ok(r.status === 403 || r.status === 404);
   assert.ok(!r.buf.toString().includes('createApp'));
@@ -672,7 +679,7 @@ test('admin password: lockout after 5 wrong tries, change signs out, reset comma
     assert.ok(a.valid(req(a.login('new-secret'))));
     await store.close();
 
-    const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'server.js'), '--reset-admin-password'], {
+    const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'dist', 'server.js'), '--reset-admin-password'], {
       env: { ...process.env, PP_MEDIA_DIR: tmp, PP_DATA_DIR: tmp, PP_CONFIG: path.join(tmp, 'none.json') }, encoding: 'utf8',
     });
     assert.match(out, /Admin password removed/);

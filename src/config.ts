@@ -2,7 +2,17 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '..');
+function findProjectRoot(start) {
+  let current = path.resolve(start);
+  while (true) {
+    if (fs.existsSync(path.join(current, 'package.json'))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return path.resolve(start, '..');
+    current = parent;
+  }
+}
+
+const ROOT = findProjectRoot(__dirname);
 
 function loadConfig(overrides = {}) {
   const env = process.env;
@@ -12,7 +22,7 @@ function loadConfig(overrides = {}) {
     try {
       file = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
     } catch (e) {
-      throw new Error(`Could not read ${cfgPath}: ${e.message}`);
+      throw new Error(`Could not read ${cfgPath}: ${e.message}`, { cause: e });
     }
     if (!file || typeof file !== 'object' || Array.isArray(file)) throw new Error(`${cfgPath} must contain a JSON object`);
   }

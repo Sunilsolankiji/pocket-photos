@@ -5,7 +5,7 @@ async function showAlbums() {
   S.view = 'albums';
   S.done = true;
   const gen = S.gen;
-  $('#viewHeader').innerHTML = '<h2>Albums</h2><button class="btn primary" id="newAlbum">＋ New album</button>';
+  $('#viewHeader').innerHTML = '<h2>Albums</h2><button class="btn primary" id="newAlbum"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>New album</button>';
   $('#newAlbum').onclick = async () => {
     const name = await promptDlg('New album', '', 'Create');
     if (!name) return;
@@ -14,10 +14,10 @@ async function showAlbums() {
   try {
     const { albums } = await api('GET', '/api/albums');
     if (gen !== S.gen) return;
-    if (!albums.length) return showEmpty('No albums yet.<br><br>Select photos (long-press or tick the circle) and tap ＋ to add them to an album.');
+    if (!albums.length) return showEmpty('No albums yet.<br><br>Select photos (long-press or tap the selection circle) and use Add to album.');
     const wrap = document.createElement('div');
     wrap.className = 'albums';
-    wrap.innerHTML = albums.map((a) => `<div class="album-card" data-id="${a.id}"><div class="cover"${a.cover ? ` style="background-image:url('${thumbUrl(a.cover)}')"` : ''}>${a.cover ? '' : '▤'}</div><div class="name">${esc(a.name)}</div><div class="count">${plural(a.count, 'item')}</div></div>`).join('');
+    wrap.innerHTML = albums.map((a) => `<div class="album-card" data-id="${a.id}"><div class="cover"${a.cover ? ` style="background-image:url('${thumbUrl(a.cover)}')"` : ''}>${a.cover ? '' : '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M6 4h12"/></svg>'}</div><div class="name">${esc(a.name)}</div><div class="count">${plural(a.count, 'item')}</div></div>`).join('');
     wrap.onclick = (e) => { const c = e.target.closest('.album-card'); if (c) location.hash = '#/album/' + c.dataset.id; };
     $('#content').appendChild(wrap);
   } catch (e) { toast(e.message); }
@@ -206,4 +206,3 @@ function pickAvatar() {
     more();
   });
 }
-

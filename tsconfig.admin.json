@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "None",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "./public/src",
+    "ignoreDeprecations": "6.0",
+    "strict": false,
+    "skipLibCheck": true,
+    "outFile": "public-assets/admin.js",
+    "noEmitOnError": true,
+    "noCheck": true
+  },
+  "files": ["public/src/admin.ts"]
+}

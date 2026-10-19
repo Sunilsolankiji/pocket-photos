@@ -4,9 +4,19 @@
 set -e
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-echo "==> Installing packages (nodejs-lts, ffmpeg, openssl, termux-api)…"
+echo "==> Installing runtime packages (nodejs-lts, ffmpeg, openssl, termux-api)…"
 pkg update -y
 pkg install -y nodejs-lts ffmpeg openssl-tool termux-api || pkg install -y nodejs ffmpeg openssl-tool termux-api
+
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 12) ? 0 : 1)'; then
+  echo "Node.js 22.12 or newer is required; update Termux packages and try again." >&2
+  exit 1
+fi
+
+if [ ! -f "$APP_DIR/dist/server.js" ] || [ ! -f "$APP_DIR/dist/public/index.html" ] || [ ! -f "$APP_DIR/dist/public/admin.html" ]; then
+  echo "The production build is missing. Build on a computer with Node.js 22.12+ using 'npm ci && npm run build', then copy the project including dist/ to this phone." >&2
+  exit 1
+fi
 
 if [ ! -d "$HOME/storage" ]; then
   echo "==> Requesting storage permission – tap ALLOW on the phone."

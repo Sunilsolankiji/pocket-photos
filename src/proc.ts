@@ -3,6 +3,8 @@ const { spawn } = require('child_process');
 
 /** Concurrency-limited job queue with two priorities (interactive vs background). */
 class Queue {
+  [key: string]: any;
+
   constructor(concurrency) {
     this.n = Math.max(1, concurrency | 0);
     this.active = 0;

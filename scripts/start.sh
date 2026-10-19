@@ -3,7 +3,7 @@
 cd "$(dirname "$0")/.." || exit 1
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
 while true; do
-  node server.js
+  node dist/server.js
   code=$?
   [ "$code" -eq 0 ] && break
   echo "[$(date)] PocketPhotos exited with code $code – restarting in 10s…"

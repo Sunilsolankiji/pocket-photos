@@ -4,10 +4,13 @@ const fsp = fs.promises;
 
 // Keyed collections use null-prototype objects so ids like "__proto__" can never resolve to Object.prototype.
 const DICTS = ['items', 'albums', 'users', 'sessions', 'settings'];
-const dict = (o) => Object.assign(Object.create(null), o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+const dict = (o = {}) => Object.assign(Object.create(null), o && typeof o === 'object' && !Array.isArray(o) ? o : {});
 
 /** Tiny JSON-file database with debounced, atomic (write-tmp + rename) saves. */
 class Store {
+  [key: string]: any;
+  data: Record<string, any>;
+
   constructor(file) {
     this.file = file;
     this.data = { version: 1 };

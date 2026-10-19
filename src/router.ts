@@ -3,6 +3,8 @@
 const { HttpError } = require('./library');
 
 class Router {
+  [key: string]: any;
+
   constructor() {
     this.routes = [];
   }

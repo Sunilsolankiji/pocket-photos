@@ -17,7 +17,8 @@ whole home Wi-Fi. It also runs on any Windows/macOS/Linux machine with Node.js.
 * **Access from anywhere** over HTTPS (router port forwarding, free DuckDNS address, auto-generated certificate)
 * scrypt-hashed passwords, session cookies, CSRF + brute-force protection
 * Installable to your home screen (PWA manifest)
-* **No npm dependencies** and no native modules – only Node.js + ffmpeg, so it installs cleanly in Termux
+* A TypeScript backend and Preact mobile-first UI, compiled with Vite before deployment
+* No runtime npm dependencies or native modules – Termux runs the compiled app with Node.js
 
 Your files are never moved or re-encoded: PocketPhotos indexes the folders you already have
 on the SSD (`DCIM/`, `Pictures/`, …). Each user's uploads are saved as originals to `Users/<user-id>/YYYY/MM/`.
@@ -36,8 +37,19 @@ Thumbnails and the index live in a hidden `.pocketphotos/` folder on the SSD.
 Plug the SSD in (USB-C, ideally with a powered hub/adapter that also charges the phone).
 exFAT is the best filesystem for an SSD shared with PCs. In **My Files** you should see it as *USB storage*.
 
-### 3. Copy PocketPhotos to the phone
-Copy this whole `pocket-photos` folder to the phone (e.g. into `Download/`), then in Termux:
+### 3. Build on a computer and copy PocketPhotos to the phone
+Build the production files on a computer with Node.js 22.12 or newer. The phone only needs Node.js
+to run the compiled server and assets; do not run npm install on Termux.
+
+```sh
+cd pocket-photos
+npm ci
+npm run build
+```
+
+Prepare a deployment folder named `pocket-photos` containing `package.json`, `dist/`, and `scripts/`.
+Do not copy `node_modules/` or install npm packages on the phone. Copy that folder to the phone
+(e.g. into `Download/`), then in Termux:
 
 ```sh
 termux-setup-storage                     # tap Allow (grant "All files access" if asked)
@@ -46,8 +58,9 @@ cd ~/pocket-photos
 bash scripts/termux-install.sh
 ```
 
-The installer installs Node.js + ffmpeg + openssl, lists storage volumes (your SSD is `/storage/XXXX-XXXX`),
-asks for the media folder, writes `config.json` and sets up auto-start.
+The installer installs Node.js + ffmpeg + openssl, checks for the prebuilt `dist/` files, lists
+storage volumes (your SSD is `/storage/XXXX-XXXX`), asks for the media folder, writes `config.json`
+and sets up auto-start.
 
 ### 4. Start it
 ```sh
@@ -63,7 +76,7 @@ open from any other device – not on Wi-Fi and not from the internet.
 On the first visit it asks you to **choose an admin password or PIN** (at least 6 characters), so
 someone holding your unlocked phone can't manage users. The admin sign-in ends after 30 minutes of
 inactivity (or 12 hours, or a server restart); 5 wrong attempts lock it for 15 minutes. Change it with
-*Change admin password*. **Forgot it?** Stop the server and run `node server.js --reset-admin-password`,
+*Change admin password*. **Forgot it?** Stop the server and run `node dist/server.js --reset-admin-password`,
 then start the server and choose a new one (users and photos are not touched).
 
 * **Generate user** – leave the fields empty for a random ID and a strong password, or type your own
@@ -142,16 +155,29 @@ Without ffmpeg the server still works (photos show originals as thumbnails; vide
 
 ## Running on a PC instead
 ```sh
-node server.js                          # uses ./library
-PP_MEDIA_DIR=/mnt/ssd/Photos node server.js
+npm start                               # uses ./library
+PP_MEDIA_DIR=/mnt/ssd/Photos npm start
 ```
-Requires Node.js 18.15+ (ffmpeg recommended).
+Requires Node.js 22.12+ (ffmpeg recommended).
+
+## Development
+```sh
+npm ci
+npm run dev        # TypeScript backend + Vite/Preact frontend
+npm run check      # backend, frontend, and UI TypeScript checks
+npm run lint
+npm test           # production build plus integration/unit tests
+```
+
+The browser UI is served by Vite during development, with `/api` proxied to the TypeScript server.
+`npm run build` emits the compiled server under `dist/` and the production website under `dist/public/`.
+The Termux deployment needs only that compiled output, `package.json` (for version/project-root
+discovery), the startup scripts, and its runtime `config.json`; source, tests, and dev dependencies
+stay on the development computer.
 
 ## Tests
-```sh
-npm test        # Node's built-in test runner; optional external tools are used when available
-npm run check   # syntax-check server and browser JavaScript without installing dependencies
-```
+Run `npm test` from the development checkout; it builds the production package before running the
+Node.js test suite. Optional external media tools are used by integration tests when available.
 
 ## Access from outside your home Wi-Fi
 PocketPhotos runs a second, encrypted server on port **8443** (HTTPS). The admin page shows your

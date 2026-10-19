@@ -5,7 +5,7 @@ const path = require('path');
 const https = require('https');
 const { run } = require('./proc');
 
-function httpsGetText(url, timeout = 15000) {
+function httpsGetText(url, timeout = 15000): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { timeout, headers: { 'User-Agent': 'PocketPhotos' } }, (res) => {
       let body = '';
@@ -69,6 +69,8 @@ function describeCert(pem) {
 
 /** Keeps a DuckDNS hostname pointed at the home's current public IP. */
 class DuckDns {
+  [key: string]: any;
+
   constructor(getSettings) {
     this.getSettings = getSettings;
     this.status = { lastRun: null, ok: null, error: null };
