@@ -46,16 +46,19 @@ function parseTiff(t) {
   };
   try {
     const ifd0 = readIfd(u32(4));
-    if (ifd0[0x010f]) res.make = ifd0[0x010f];
-    if (ifd0[0x0110]) res.model = ifd0[0x0110];
-    if (ifd0[0x0112]) res.orientation = ifd0[0x0112];
+    // Only trust tags with the expected TIFF type: crafted files can put text where numbers belong.
+    const text = (v) => (typeof v === 'string' && v ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64) : null);
+    const int = (v, max) => (Number.isInteger(v) && v > 0 && v <= max ? v : null);
+    if (text(ifd0[0x010f])) res.make = text(ifd0[0x010f]);
+    if (text(ifd0[0x0110])) res.model = text(ifd0[0x0110]);
+    if (int(ifd0[0x0112], 8)) res.orientation = ifd0[0x0112];
     let date = null;
     let offset = null;
     if (ifd0[0x8769]) {
       const ex = readIfd(ifd0[0x8769]);
       date = ex[0x9003] || ex[0x9004] || null;
       offset = ex[0x9011] || ex[0x9010] || null;
-      if (ex[0xa002] && ex[0xa003]) {
+      if (int(ex[0xa002], 1e6) && int(ex[0xa003], 1e6)) {
         res.width = ex[0xa002];
         res.height = ex[0xa003];
       }

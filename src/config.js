@@ -9,7 +9,12 @@ function loadConfig(overrides = {}) {
   const cfgPath = env.PP_CONFIG || path.join(ROOT, 'config.json');
   let file = {};
   if (fs.existsSync(cfgPath)) {
-    file = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    try {
+      file = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    } catch (e) {
+      throw new Error(`Could not read ${cfgPath}: ${e.message}`);
+    }
+    if (!file || typeof file !== 'object' || Array.isArray(file)) throw new Error(`${cfgPath} must contain a JSON object`);
   }
   const pick = (envKey, key, def) => {
     if (overrides[key] !== undefined) return overrides[key];
@@ -41,9 +46,32 @@ function loadConfig(overrides = {}) {
     duckdnsToken: pick('PP_DUCKDNS_TOKEN', 'duckdnsToken', ''),
     allowRemoteHttp: String(pick('PP_ALLOW_REMOTE_HTTP', 'allowRemoteHttp', 'false')) === 'true',
   };
+  for (const k of Object.keys(file)) {
+    if (!(k in cfg) && !k.startsWith('_')) console.warn(`[config] unknown setting "${k}" in ${cfgPath} (ignored)`);
+  }
+  validate(cfg);
   cfg.mediaDir = path.resolve(cfg.mediaDir);
   cfg.dataDir = path.resolve(cfg.dataDir || path.join(cfg.mediaDir, '.pocketphotos'));
   return cfg;
 }
 
-module.exports = { loadConfig, ROOT };
+// [min, max] for every numeric setting; a bad value fails fast instead of silently becoming NaN.
+const RANGES = {
+  port: [0, 65535], httpsPort: [0, 65535], workers: [1, 16], thumbSize: [64, 1024], previewSize: [512, 8192],
+  rescanMinutes: [0, 10080], trashDays: [1, 3650], maxUploadBytes: [1024 * 1024, 1024 ** 4],
+};
+
+function validate(cfg) {
+  const bad = [];
+  for (const [k, [min, max]] of Object.entries(RANGES)) {
+    const v = cfg[k];
+    if (!Number.isFinite(v) || v < min || v > max || ((k.endsWith('ort') || k === 'workers') && !Number.isInteger(v))) {
+      bad.push(`${k}=${JSON.stringify(v)} (expected ${min}..${max})`);
+    }
+  }
+  if (cfg.port && cfg.port === cfg.httpsPort) bad.push('port and httpsPort must differ');
+  if (!String(cfg.mediaDir || '').trim()) bad.push('mediaDir is empty');
+  if (bad.length) throw new Error('Invalid configuration: ' + bad.join(', '));
+}
+
+module.exports = { loadConfig, validate, ROOT };

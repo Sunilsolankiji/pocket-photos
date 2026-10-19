@@ -40,24 +40,34 @@ function sendJson(res, status, obj, headers = {}) {
   res.end(body);
 }
 
-function readJson(req, limit = 1024 * 1024) {
+function readJson(req, limit = 1024 * 1024, deadline = 30000) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
+    const timer = setTimeout(() => {
+      reject(new HttpError(408, 'Request body took too long'));
+      req.destroy();
+    }, deadline);
+    req.on('close', () => clearTimeout(timer));
     req.on('data', (c) => {
       size += c.length;
       if (size > limit) {
+        clearTimeout(timer);
         reject(new HttpError(413, 'Body too large'));
         req.destroy();
       } else chunks.push(c);
     });
     req.on('end', () => {
+      clearTimeout(timer);
       if (!chunks.length) return resolve({});
+      let body;
       try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       } catch {
-        reject(new HttpError(400, 'Invalid JSON'));
+        return reject(new HttpError(400, 'Invalid JSON'));
       }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return reject(new HttpError(400, 'Expected a JSON object'));
+      resolve(body);
     });
     req.on('error', reject);
   });
@@ -456,6 +466,11 @@ async function createApp(cfg) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('X-Frame-Options', 'DENY');
+    // No inline/third-party scripts anywhere, so injected markup cannot run code even if escaping is ever missed.
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     // Never accept plain-HTTP traffic from the internet: passwords and photos would travel unencrypted.
     if (!secure(req) && !cfg.allowRemoteHttp && !isPrivate(req.socket.remoteAddress)) {
       const host = publicHostName();
@@ -481,6 +496,8 @@ async function createApp(cfg) {
             /* invalid origin */
           }
           if (host !== req.headers.host) throw new HttpError(403, 'Cross-origin request blocked');
+        } else if (r.access === 'admin') {
+          throw new HttpError(403, 'Admin changes must come from the admin page');
         }
       }
       if (r.access === 'admin' && !isLocalRequest(req)) throw new HttpError(403, 'Admin is only available on the phone itself (http://localhost)');
@@ -506,8 +523,12 @@ async function createApp(cfg) {
     });
   };
   const tune = (s) => {
-    s.requestTimeout = 0; // allow long uploads over slow connections
-    s.headersTimeout = 60000;
+    s.requestTimeout = 0; // allow long uploads over slow connections...
+    s.timeout = 120000; // ...but drop sockets that send/receive nothing for 2 minutes (slow-drip / stalled clients)
+    s.headersTimeout = 20000;
+    s.keepAliveTimeout = 10000;
+    s.maxHeadersCount = 100;
+    s.maxConnections = 256;
     return s;
   };
   const server = tune(http.createServer(listener));

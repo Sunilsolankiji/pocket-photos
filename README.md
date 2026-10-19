@@ -117,8 +117,13 @@ Edit `config.json` (see `config.example.json`) or use environment variables:
 | `openssl` | `PP_OPENSSL` | from `PATH` | Used to create the self-signed certificate |
 | `rescanMinutes` | `PP_RESCAN_MINUTES` | `15` | Automatic rescan interval (0 = off). Also via the admin page |
 | `trashDays` | `PP_TRASH_DAYS` | `30` | Trash auto-empty age |
+| `maxUploadBytes` | `PP_MAX_UPLOAD_BYTES` | 20 GB | Largest single upload |
 | `pregenerate` | `PP_PREGENERATE` | `true` | Build all thumbnails in the background after a scan |
 | `ffmpeg` / `ffprobe` | `PP_FFMPEG` / `PP_FFPROBE` | from `PATH` | Tool paths |
+
+Numbers are checked at start-up (e.g. ports 0-65535, `workers` 1-16, `thumbSize` 64-1024,
+`previewSize` 512-8192, `trashDays` 1-3650); an invalid value stops the server with a clear message
+instead of silently disabling a feature. Unknown keys in `config.json` are reported as warnings.
 
 Without ffmpeg the server still works (photos show originals as thumbnails; videos get placeholders and file dates).
 
@@ -169,6 +174,10 @@ export DuckDNS_Token="<your token>"
   lock sign-in for 15 minutes. Failed attempts are listed on the admin page.
 * Each user can only list, open, stream, download, change or delete items in their own folders,
   and only see their own albums. Server paths and scan details are hidden from other devices.
+* Pages are served with a strict Content-Security-Policy (no inline or third-party scripts),
+  `nosniff`, `frame-ancestors 'none'` and same-origin resource policy. Admin changes additionally require
+  a matching `Origin` header. Photo metadata (EXIF) is type-checked before it is stored or displayed.
+* Slow or stalled connections are dropped (20 s for headers, 2 min of inactivity, 30 s for JSON bodies).
 * Anything exposed to the internet carries risk: use long generated passwords and keep Termux updated
   (`pkg upgrade`). A VPN such as Tailscale is the safer alternative if you don't need browser access
   for others.

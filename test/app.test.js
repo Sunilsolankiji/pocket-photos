@@ -12,6 +12,7 @@ const { parseJpeg, parseExifDate } = require('../src/exif');
 const { dateFromName } = require('../src/meta');
 const { loadConfig } = require('../src/config');
 const { createApp } = require('../src/app');
+const { slim } = require('../src/library');
 
 const FFMPEG = process.env.PP_FFMPEG || 'ffmpeg';
 const FFPROBE = process.env.PP_FFPROBE || 'ffprobe';
@@ -22,12 +23,12 @@ try {
   hasFfmpeg = false;
 }
 
-function buildExif({ make = 'samsung', orientation = 6, date = '2023:10:15 12:34:56', offset = '+03:00' } = {}) {
-  const buf = Buffer.alloc(256);
+function buildExif({ make = 'samsung', orientation = 6, date = '2023:10:15 12:34:56', offset = '+03:00', exifExtra = [] } = {}) {
+  const buf = Buffer.alloc(512);
   buf.write('II', 0, 'latin1');
   buf.writeUInt16LE(42, 2);
   buf.writeUInt32LE(8, 4);
-  let data = 80;
+  let data = 160;
   const putStr = (s) => { const off = data; buf.write(s + '\0', off, 'latin1'); data += s.length + 1; return off; };
   let p;
   const entry = (tag, type, count, v) => {
@@ -40,9 +41,13 @@ function buildExif({ make = 'samsung', orientation = 6, date = '2023:10:15 12:34
   entry(0x0112, 3, 1, orientation);
   entry(0x8769, 4, 1, 50);
   buf.writeUInt32LE(0, p);
-  p = 50; buf.writeUInt16LE(2, p); p += 2;
+  p = 50; buf.writeUInt16LE(2 + exifExtra.length, p); p += 2;
   entry(0x9003, 2, date.length + 1, putStr(date));
   entry(0x9011, 2, offset.length + 1, putStr(offset));
+  for (const [tag, v] of exifExtra) {
+    if (typeof v === 'string') entry(tag, 2, v.length + 1, putStr(v));
+    else entry(tag, 4, 1, v);
+  }
   buf.writeUInt32LE(0, p);
   return buf.subarray(0, data);
 }
@@ -72,6 +77,24 @@ test('EXIF parser reads date, offset, camera, orientation and size', () => {
   assert.strictEqual(info.taken, Date.parse('2023-10-15T12:34:56+03:00'));
 });
 
+test('EXIF tags with the wrong type are ignored (no text where numbers belong)', () => {
+  const xss = '<img src=x onerror=alert(1)>';
+  const exif = withExif(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), { make: 'cam\x01era', exifExtra: [[0xa002, xss], [0xa003, xss]] });
+  // EXIF placed after the SOF so the real JPEG size cannot overwrite the bad values
+  const info = parseJpeg(Buffer.concat([Buffer.from([0xff, 0xd8]), fakeJpeg(10, 10).subarray(2, 15), exif.subarray(2)]));
+  assert.notStrictEqual(info.width, xss);
+  assert.ok(info.width === undefined || typeof info.width === 'number');
+  assert.strictEqual(info.make, 'camera');
+  assert.deepStrictEqual(slim({ id: 'x', name: 'n', type: 'image', taken: 1, w: xss, h: '1', size: 5, mtime: 0 }).w, 0);
+});
+
+test('config rejects invalid numbers instead of silently ignoring them', () => {
+  assert.throws(() => loadConfig({ mediaDir: os.tmpdir(), maxUploadBytes: 'lots' }), /maxUploadBytes/);
+  assert.throws(() => loadConfig({ mediaDir: os.tmpdir(), port: 70000 }), /port/);
+  assert.throws(() => loadConfig({ mediaDir: os.tmpdir(), port: 8080, httpsPort: 8080 }), /differ/);
+  assert.strictEqual(loadConfig({ mediaDir: os.tmpdir(), trashDays: '7' }).trashDays, 7);
+});
+
 test('EXIF date without offset is local time; invalid dates rejected', () => {
   assert.strictEqual(parseExifDate('2020:01:02 03:04:05'), new Date(2020, 0, 2, 3, 4, 5).getTime());
   assert.strictEqual(parseExifDate('0000:00:00 00:00:00'), null);
@@ -91,6 +114,9 @@ function request(base, method, url, { body, headers = {}, cookie, raw } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url, base);
     const h = { ...headers };
+    // Browsers always send Origin on writes; pass Origin: null to simulate a client that omits it.
+    if (method !== 'GET' && h.Origin === undefined) h.Origin = new URL(base).origin;
+    if (h.Origin === null) delete h.Origin;
     if (cookie) h.Cookie = cookie;
     let data = body;
     if (body !== undefined && !Buffer.isBuffer(body)) {
@@ -168,6 +194,10 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   assert.strictEqual(r.status, 403);
   r = await request(base, 'POST', '/api/admin/users', { headers: { Origin: 'http://evil.com' }, body: { id: 'hacker' } });
   assert.strictEqual(r.status, 403, 'cross-origin admin requests blocked');
+  r = await request(base, 'POST', '/api/admin/users', { headers: { Origin: null }, body: { id: 'hacker' } });
+  assert.strictEqual(r.status, 403, 'admin writes need an Origin header');
+  r = await request(base, 'GET', '/');
+  assert.match(r.headers['content-security-policy'], /script-src 'self'/);
 
   // create users from the admin API
   r = await request(base, 'POST', '/api/admin/users', { body: { id: 'Alice', password: 'short' } });
@@ -336,6 +366,13 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   assert.strictEqual(r.status, 404);
   r = await request(base, 'POST', '/api/media/batch', { cookie: bobCookie, body: { ids: [img.id, vid.id], action: 'trash' } });
   assert.strictEqual(r.json.count, 0, 'batch ignores items of other users');
+  for (const id of ['__proto__', 'constructor', 'toString']) {
+    r = await request(base, 'POST', '/api/media/batch', { cookie, body: { ids: [id], action: 'trash' } });
+    assert.strictEqual(r.json.count, 0, `batch ignores inherited key ${id}`);
+    r = await request(base, 'GET', `/api/media/${id}`, { cookie });
+    assert.strictEqual(r.status, 404);
+  }
+  assert.strictEqual({}.trashed, undefined, 'Object.prototype untouched');
   r = await request(base, 'POST', '/api/media/batch', { cookie: bobCookie, body: { ids: [img.id], action: 'delete' } });
   assert.strictEqual(r.json.count, 0);
   assert.ok(fs.existsSync(path.join(media, 'DCIM', 'Camera', 'photo.jpg')));

@@ -544,7 +544,7 @@ async function loadInfo() {
       ['Date', new Date(d.taken).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })],
       ['Name', esc(d.name)],
       ['Type', d.type === 'video' ? 'Video' : 'Photo'],
-      d.w ? ['Size', `${d.w} × ${d.h}${d.w * d.h > 1e6 ? ` (${(d.w * d.h / 1e6).toFixed(1)} MP)` : ''}`] : null,
+      d.w ? ['Size', `${Number(d.w) | 0} × ${Number(d.h) | 0}${d.w * d.h > 1e6 ? ` (${(d.w * d.h / 1e6).toFixed(1)} MP)` : ''}`] : null,
       d.dur ? ['Duration', fmtDur(d.dur)] : null,
       ['File size', fmtBytes(d.size)],
       d.make || d.model ? ['Camera', esc([d.make, d.model].filter(Boolean).join(' '))] : null,

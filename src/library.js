@@ -85,18 +85,27 @@ async function* walk(dir, skip) {
   }
 }
 
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+const str = (v) => (typeof v === 'string' ? v.slice(0, 80) : '');
+const isId = (id) => typeof id === 'string' && /^[0-9a-f]{16}$/.test(id);
+
 function slim(i) {
   return {
-    id: i.id, name: i.name, type: i.type, taken: i.taken, w: i.w || 0, h: i.h || 0,
-    dur: i.dur || 0, fav: !!i.fav, trashed: i.trashed || 0, size: i.size,
+    id: i.id, name: i.name, type: i.type, taken: num(i.taken), w: num(i.w), h: num(i.h),
+    dur: num(i.dur), fav: !!i.fav, trashed: num(i.trashed), size: num(i.size),
     v: Math.floor(i.mtime / 1000).toString(36),
   };
 }
 
+const searchCache = new WeakMap();
 function searchText(i) {
+  let s = searchCache.get(i);
+  if (s !== undefined) return s;
   const d = new Date(i.taken);
   const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return `${i.path} ${i.make || ''} ${i.model || ''} ${ymd} ${MONTHS[d.getMonth()]} ${i.type === 'video' ? 'video' : 'photo'}`.toLowerCase();
+  s = `${i.path} ${i.make || ''} ${i.model || ''} ${ymd} ${MONTHS[d.getMonth()]} ${i.type === 'video' ? 'video' : 'photo'}`.toLowerCase();
+  searchCache.set(i, s);
+  return s;
 }
 
 class Library {
@@ -124,6 +133,11 @@ class Library {
   changed() {
     this.sorted = null;
     this.userLists.clear();
+    this.store.save();
+  }
+
+  /** Item flags/albums changed but not the set of items: keep the sorted caches (they hold the same objects). */
+  touched() {
     this.store.save();
   }
 
@@ -157,7 +171,7 @@ class Library {
   }
 
   albumFor(id, user) {
-    const a = this.albums[id];
+    const a = typeof id === 'string' && Object.hasOwn(this.albums, id) ? this.albums[id] : undefined;
     if (!a || a.owner !== user) throw new HttpError(404, 'Album not found');
     return a;
   }
@@ -170,8 +184,13 @@ class Library {
     return path.relative(this.cfg.mediaDir, abs).split(path.sep).join('/');
   }
 
+  /** Own, well-formed item ids only. */
+  item(id) {
+    return isId(id) && Object.hasOwn(this.items, id) ? this.items[id] : undefined;
+  }
+
   get(id, user) {
-    const it = this.items[id];
+    const it = this.item(id);
     if (!it || (user !== undefined && !this.owns(user, it))) throw new HttpError(404, 'Not found');
     return it;
   }
@@ -181,12 +200,14 @@ class Library {
       id: idFor(rel), path: rel, name: path.posix.basename(rel), type,
       size: stat.size, mtime: Math.round(stat.mtimeMs), taken: meta.taken,
     };
-    if (meta.width) item.w = meta.width;
-    if (meta.height) item.h = meta.height;
-    if (meta.duration) item.dur = meta.duration;
-    if (meta.orientation && meta.orientation !== 1) item.orient = meta.orientation;
-    if (meta.make) item.make = meta.make;
-    if (meta.model) item.model = meta.model;
+    if (num(meta.width) && num(meta.height)) {
+      item.w = Math.round(meta.width);
+      item.h = Math.round(meta.height);
+    }
+    if (num(meta.duration)) item.dur = meta.duration;
+    if (Number.isInteger(meta.orientation) && meta.orientation > 1 && meta.orientation <= 8) item.orient = meta.orientation;
+    if (str(meta.make)) item.make = str(meta.make);
+    if (str(meta.model)) item.model = str(meta.model);
     return item;
   }
 
@@ -445,7 +466,7 @@ class Library {
 
   async batch(ids, action, opts = {}, user) {
     if (!Array.isArray(ids)) throw new HttpError(400, 'ids must be an array');
-    ids = ids.filter((id) => this.items[id] && (user === undefined || this.owns(user, this.items[id])));
+    ids = [...new Set(ids)].filter((id) => this.item(id) && (user === undefined || this.owns(user, this.items[id])));
     const now = Date.now();
     switch (action) {
       case 'favorite':
@@ -463,8 +484,7 @@ class Library {
         return { count: await this.deleteForever(ids.filter((id) => this.items[id].trashed)) };
       case 'addToAlbum':
       case 'removeFromAlbum': {
-        const a = user === undefined ? this.albums[opts.album] : this.albums[opts.album] && this.albums[opts.album].owner === user ? this.albums[opts.album] : null;
-        if (!a) throw new HttpError(404, 'Album not found');
+        const a = user === undefined ? this.albumFor(opts.album, this.albums[opts.album] && this.albums[opts.album].owner) : this.albumFor(opts.album, user);
         if (action === 'addToAlbum') {
           const set = new Set(a.items);
           for (const id of ids) if (!set.has(id)) a.items.push(id);
@@ -479,13 +499,13 @@ class Library {
       default:
         throw new HttpError(400, 'Unknown action');
     }
-    this.changed();
+    this.touched();
     return { count: ids.length };
   }
 
   async purgeTrash() {
     const cutoff = Date.now() - this.cfg.trashDays * 86400000;
-    const old = Object.values(this.items).filter((i) => i.trashed && i.trashed < cutoff).map((i) => i.id);
+    const old = Object.values(this.items).filter((i) => num(i.trashed) && i.trashed < cutoff).map((i) => i.id);
     if (old.length && !this.readOnly) await this.deleteForever(old);
     return old.length;
   }
@@ -511,8 +531,8 @@ class Library {
     if (!name) throw new HttpError(400, 'Album name required');
     const id = crypto.randomBytes(8).toString('hex');
     const now = Date.now();
-    this.albums[id] = { id, owner: user, name, created: now, updated: now, cover: null, items: ids.filter((i) => this.owns(user, this.items[i])) };
-    this.changed();
+    this.albums[id] = { id, owner: user, name, created: now, updated: now, cover: null, items: [...new Set(ids)].filter((i) => this.owns(user, this.item(i))) };
+    this.touched();
     return this.albums[id];
   }
 
@@ -523,21 +543,21 @@ class Library {
       if (!name) throw new HttpError(400, 'Album name required');
       a.name = name;
     }
-    if (cover !== undefined) a.cover = cover && this.owns(user, this.items[cover]) ? cover : null;
+    if (cover !== undefined) a.cover = cover && this.owns(user, this.item(cover)) ? cover : null;
     a.updated = Date.now();
-    this.changed();
+    this.touched();
     return a;
   }
 
   deleteAlbum(id, user) {
     this.albumFor(id, user);
     delete this.albums[id];
-    this.changed();
+    this.touched();
   }
 
   deleteUserAlbums(user) {
     for (const [id, a] of Object.entries(this.albums)) if (a.owner === user) delete this.albums[id];
-    this.changed();
+    this.touched();
   }
 }
 

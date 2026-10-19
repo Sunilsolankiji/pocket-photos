@@ -2,11 +2,16 @@
 const fs = require('fs');
 const fsp = fs.promises;
 
+// Keyed collections use null-prototype objects so ids like "__proto__" can never resolve to Object.prototype.
+const DICTS = ['items', 'albums', 'users', 'sessions', 'settings'];
+const dict = (o) => Object.assign(Object.create(null), o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+
 /** Tiny JSON-file database with debounced, atomic (write-tmp + rename) saves. */
 class Store {
   constructor(file) {
     this.file = file;
-    this.data = { version: 1, items: {}, albums: {}, users: {}, sessions: {}, settings: {} };
+    this.data = { version: 1 };
+    for (const k of DICTS) this.data[k] = dict();
     this.timer = null;
     this.chain = Promise.resolve();
   }
@@ -16,6 +21,7 @@ class Store {
       try {
         const d = JSON.parse(fs.readFileSync(f, 'utf8'));
         Object.assign(this.data, d);
+        for (const k of DICTS) this.data[k] = dict(this.data[k]);
         return;
       } catch (e) {
         if (e.code !== 'ENOENT') console.warn(`[store] could not read ${f}: ${e.message}`);
