@@ -296,4 +296,105 @@ class Auth {
   }
 }
 
-module.exports = { Auth, hashPassword, verifyPassword, parseCookies, generatePassword, generateId, ID_RE };
+const ADMIN_COOKIE = 'pp_admin';
+const ADMIN_IDLE = 30 * 60000;
+const ADMIN_MAX = 12 * 3600000;
+const ADMIN_MAX_FAILS = 5;
+
+/**
+ * Password for the admin page (on top of the phone-only check), so a person holding the unlocked phone
+ * or another app on it cannot manage users. Hash lives in db.json; sessions are in memory only, so a
+ * restart signs the admin out. Cookies expire after 30 min idle / 12 h total.
+ */
+class AdminAuth {
+  constructor(store) {
+    this.store = store;
+    this.sessions = new Map();
+    this.fails = { count: 0, first: 0, lockedUntil: 0 };
+  }
+
+  get rec() {
+    const a = this.store.data.admin;
+    return a && typeof a.salt === 'string' && typeof a.hash === 'string' ? a : null;
+  }
+
+  get isSet() {
+    return !!this.rec;
+  }
+
+  static validate(pw) {
+    pw = String(pw || '');
+    if (pw.length < 6) throw httpError(400, 'Admin password/PIN must be at least 6 characters');
+    if (pw.length > 200) throw httpError(400, 'Admin password is too long');
+    return pw;
+  }
+
+  setup(pw) {
+    if (this.isSet) throw httpError(409, 'Admin password is already set');
+    this.store.data.admin = { ...hashPassword(AdminAuth.validate(pw)), created: Date.now() };
+    this.store.save();
+  }
+
+  lockedFor() {
+    const now = Date.now();
+    return this.fails.lockedUntil > now ? Math.ceil((this.fails.lockedUntil - now) / 60000) : 0;
+  }
+
+  /** Returns a session token, or throws 401/429. */
+  login(pw) {
+    const mins = this.lockedFor();
+    if (mins) throw httpError(429, `Too many wrong attempts. Try again in ${mins} minute${mins > 1 ? 's' : ''}`);
+    if (!this.isSet) throw httpError(409, 'Set an admin password first');
+    if (!verifyPassword(pw, this.rec)) {
+      const now = Date.now();
+      if (now - this.fails.first > WINDOW) this.fails = { count: 0, first: now, lockedUntil: 0 };
+      if (++this.fails.count >= ADMIN_MAX_FAILS) {
+        this.fails.lockedUntil = now + WINDOW;
+        this.fails.count = 0;
+        this.fails.first = now;
+      }
+      throw httpError(401, 'Wrong admin password');
+    }
+    this.fails = { count: 0, first: 0, lockedUntil: 0 };
+    const token = crypto.randomBytes(32).toString('hex');
+    this.sessions.set(tokenKey(token), { created: Date.now(), seen: Date.now() });
+    return token;
+  }
+
+  valid(req) {
+    const t = parseCookies(req.headers.cookie)[ADMIN_COOKIE];
+    if (!t) return false;
+    const key = tokenKey(t);
+    const s = this.sessions.get(key);
+    const now = Date.now();
+    if (!s) return false;
+    if (now - s.seen > ADMIN_IDLE || now - s.created > ADMIN_MAX) {
+      this.sessions.delete(key);
+      return false;
+    }
+    s.seen = now;
+    return true;
+  }
+
+  logout(req) {
+    const t = parseCookies(req.headers.cookie)[ADMIN_COOKIE];
+    if (t) this.sessions.delete(tokenKey(t));
+  }
+
+  change(current, pw) {
+    if (!verifyPassword(current, this.rec)) throw httpError(401, 'Current admin password is wrong');
+    this.store.data.admin = { ...hashPassword(AdminAuth.validate(pw)), created: Date.now() };
+    this.sessions.clear();
+    this.store.save();
+  }
+
+  cookieFor(token) {
+    return `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/`;
+  }
+
+  clearCookie() {
+    return `${ADMIN_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
+  }
+}
+
+module.exports = { Auth, AdminAuth, hashPassword, verifyPassword, parseCookies, generatePassword, generateId, ID_RE };

@@ -28,7 +28,13 @@ async function api(method, url, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    // Admin session expired (30 min idle): go back to the sign-in form.
+    if (res.status === 401 && url !== '/api/admin/login' && url !== '/api/admin/password' && typeof gate === 'function') setTimeout(gate);
+    throw err;
+  }
   return data;
 }
 
@@ -214,14 +220,69 @@ async function load() {
   try {
     D = await api('GET', '/api/admin/overview');
   } catch (e) {
+    if (e.status === 401) return gate();
     document.querySelector('.admin').insertAdjacentHTML('beforeend', `<p class="err">${esc(e.message)}</p>`);
     return;
   }
+  $('#gate').classList.add('hidden');
+  $('#main').classList.remove('hidden');
   renderUsers();
   renderLibrary();
   renderRemote();
   renderFails();
 }
+
+/** Shows the admin sign-in form, or the "choose a password" form on first use. */
+async function gate() {
+  $('#main').classList.add('hidden');
+  $('#gate').classList.remove('hidden');
+  const st = await api('GET', '/api/admin/auth').catch((e) => ({ error: e.message }));
+  const setup = st.passwordSet === false;
+  $('#gateTitle').textContent = setup ? 'Choose an admin password' : 'Admin sign-in';
+  $('#gateText').textContent = st.error || (setup
+    ? 'First time here: pick a password or PIN (at least 6 characters) that protects this page. Someone holding your unlocked phone will need it to manage users.'
+    : st.lockedMinutes ? `Too many wrong attempts. Try again in ${st.lockedMinutes} min.` : 'Enter the admin password for this PocketPhotos server.');
+  $('#gatePass2').classList.toggle('hidden', !setup);
+  $('#gatePass2').required = setup;
+  $('#gatePass').autocomplete = setup ? 'new-password' : 'current-password';
+  $('#gateBtn').textContent = setup ? 'Save password' : 'Sign in';
+  $('#gateForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('#gateErr').textContent = '';
+    const password = $('#gatePass').value;
+    if (setup && password !== $('#gatePass2').value) return ($('#gateErr').textContent = 'The two entries do not match');
+    try {
+      await api('POST', setup ? '/api/admin/setup' : '/api/admin/login', { password });
+      $('#gateForm').reset();
+      load();
+    } catch (err) {
+      $('#gateErr').textContent = err.message;
+    }
+  };
+  $('#gatePass').focus();
+}
+
+$('#adminOut').onclick = async () => {
+  await api('POST', '/api/admin/logout', {}).catch(() => {});
+  gate();
+};
+
+$('#adminPw').onclick = async () => {
+  const r = await modal(`<h3>Change admin password</h3>
+    <input type="password" id="apCur" placeholder="Current admin password" autocomplete="current-password">
+    <input type="password" id="apNew" placeholder="New password or PIN (min 6)" autocomplete="new-password">
+    <input type="password" id="apNew2" placeholder="Repeat new password" autocomplete="new-password">
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-r="0">Cancel</button><button class="btn primary" data-r="1">Change</button></div>`);
+  if (r !== '1') return;
+  const cur = $('#apCur').value, pw = $('#apNew').value;
+  if (pw !== $('#apNew2').value) return toast('The new passwords do not match');
+  try {
+    await api('POST', '/api/admin/password', { current: cur, password: pw });
+    toast('Admin password changed');
+  } catch (err) {
+    toast(err.message);
+  }
+};
 
 $('#newUser').onsubmit = async (e) => {
   e.preventDefault();

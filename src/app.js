@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { Store } = require('./store');
 const { Thumbs } = require('./thumbs');
 const { Library, HttpError, slim } = require('./library');
-const { Auth } = require('./auth');
+const { Auth, AdminAuth } = require('./auth');
 const { isLocalRequest, isPrivate } = require('./net');
 const { ensureCert, readCert, describeCert, DuckDns, publicIp } = require('./remote');
 const { hasTool } = require('./proc');
@@ -133,6 +133,11 @@ function lanAddresses() {
   }
 }
 
+/** Where data goes when <mediaDir>/.pocketphotos is not writable (e.g. read-only SSD). */
+function fallbackDataDir(cfg) {
+  return path.join(os.homedir(), '.pocketphotos-data', crypto.createHash('sha1').update(cfg.mediaDir).digest('hex').slice(0, 8));
+}
+
 async function createApp(cfg) {
   if (!(await isWritable(cfg.mediaDir))) {
     try {
@@ -143,7 +148,7 @@ async function createApp(cfg) {
   }
   const mediaWritable = await isWritable(cfg.mediaDir);
   if (!(await isWritable(cfg.dataDir))) {
-    const fallback = path.join(os.homedir(), '.pocketphotos-data', crypto.createHash('sha1').update(cfg.mediaDir).digest('hex').slice(0, 8));
+    const fallback = fallbackDataDir(cfg);
     console.warn(`[pocketphotos] data folder ${cfg.dataDir} not writable, using ${fallback}`);
     cfg.dataDir = fallback;
     await fsp.mkdir(cfg.dataDir, { recursive: true });
@@ -161,6 +166,7 @@ async function createApp(cfg) {
   const lib = new Library(cfg, store, thumbs, tools);
   lib.readOnly = !mediaWritable;
   const auth = new Auth(store, { uploadDir: cfg.uploadDir });
+  const adminAuth = new AdminAuth(store);
   const syncOwners = () => lib.setOwners(auth.folderMap());
   syncOwners();
   const makeHome = async (id) => {
@@ -181,7 +187,8 @@ async function createApp(cfg) {
   const tls = { enabled: false, server: null, address: null, mtime: 0, info: null, error: null };
 
   const routes = [];
-  // access: 'open' (no login), 'user' (valid session), 'admin' (only from the phone itself)
+  // access: 'open' (no login), 'user' (valid session), 'local' (only from the phone itself),
+  // 'admin' (from the phone itself AND signed in with the admin password)
   const route = (method, pattern, handler, access = 'user') => {
     const keys = [];
     const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)')) + '$');
@@ -222,6 +229,32 @@ async function createApp(cfg) {
     auth.changeOwnPassword(req, current, password);
     sendJson(res, 200, { ok: true });
   });
+
+  // ----- admin sign-in (phone only; the admin password protects everything below) -----
+  const adminState = () => ({ passwordSet: adminAuth.isSet, lockedMinutes: adminAuth.lockedFor() });
+  route('GET', '/api/admin/auth', async (req, res) => sendJson(res, 200, { ...adminState(), authed: adminAuth.valid(req) }), 'local');
+
+  route('POST', '/api/admin/setup', async (req, res) => {
+    const { password } = await readJson(req);
+    adminAuth.setup(password);
+    sendJson(res, 200, { ok: true }, { 'Set-Cookie': adminAuth.cookieFor(adminAuth.login(password)) });
+  }, 'local');
+
+  route('POST', '/api/admin/login', async (req, res) => {
+    const { password } = await readJson(req);
+    sendJson(res, 200, { ok: true }, { 'Set-Cookie': adminAuth.cookieFor(adminAuth.login(password)) });
+  }, 'local');
+
+  route('POST', '/api/admin/logout', async (req, res) => {
+    adminAuth.logout(req);
+    sendJson(res, 200, { ok: true }, { 'Set-Cookie': adminAuth.clearCookie() });
+  }, 'local');
+
+  route('POST', '/api/admin/password', async (req, res) => {
+    const { current, password } = await readJson(req);
+    adminAuth.change(current, password);
+    sendJson(res, 200, { ok: true }, { 'Set-Cookie': adminAuth.cookieFor(adminAuth.login(password)) });
+  }, 'admin');
 
   // ----- admin (only reachable from the phone itself: http://localhost:<port>/admin) -----
   route('GET', '/api/admin/overview', async (req, res) => {
@@ -426,8 +459,8 @@ async function createApp(cfg) {
   route('POST', '/api/scan', async (req, res) => {
     lib.scan();
     sendJson(res, 202, lib.scanState);
-  }, 'admin');
-  route('GET', '/api/scan', async (req, res) => sendJson(res, 200, lib.scanState), 'admin');
+  }, 'local');
+  route('GET', '/api/scan', async (req, res) => sendJson(res, 200, lib.scanState), 'local');
   route('GET', '/api/stats', async (req, res) => {
     let disk = null;
     try {
@@ -496,11 +529,12 @@ async function createApp(cfg) {
             /* invalid origin */
           }
           if (host !== req.headers.host) throw new HttpError(403, 'Cross-origin request blocked');
-        } else if (r.access === 'admin') {
+        } else if (r.access === 'admin' || r.access === 'local') {
           throw new HttpError(403, 'Admin changes must come from the admin page');
         }
       }
-      if (r.access === 'admin' && !isLocalRequest(req)) throw new HttpError(403, 'Admin is only available on the phone itself (http://localhost)');
+      if ((r.access === 'admin' || r.access === 'local') && !isLocalRequest(req)) throw new HttpError(403, 'Admin is only available on the phone itself (http://localhost)');
+      if (r.access === 'admin' && !adminAuth.valid(req)) throw new HttpError(401, adminAuth.isSet ? 'Admin sign-in required' : 'Set an admin password first');
       if (r.access === 'user') {
         const s = auth.session(req);
         if (!s) throw new HttpError(401, 'Login required');
@@ -604,7 +638,7 @@ async function createApp(cfg) {
     await store.close();
   }
 
-  return { server, tls, store, lib, auth, thumbs, tools, cfg, start, close, lanAddresses, publicHostName, reloadCertIfChanged };
+  return { server, tls, store, lib, auth, adminAuth, thumbs, tools, cfg, start, close, lanAddresses, publicHostName, reloadCertIfChanged };
 }
 
-module.exports = { createApp, lanAddresses };
+module.exports = { createApp, lanAddresses, fallbackDataDir };

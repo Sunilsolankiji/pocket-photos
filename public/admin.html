@@ -13,7 +13,7 @@
     .admin { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; display: flex; flex-direction: column; gap: 14px; }
     .admin header { display: flex; align-items: center; gap: 10px; }
     .admin header h1 { font-size: 22px; margin: 0; flex: 1; }
-    .admin input[type=text], .admin input[type=password] { background: var(--bg); border: 1px solid #333846; color: var(--text); padding: 10px; border-radius: 10px; min-width: 0; }
+    .admin input[type=text], .admin input[type=password], .modal-card input[type=password] { background: var(--bg); border: 1px solid #333846; color: var(--text); padding: 10px; border-radius: 10px; min-width: 0; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
     .muted { color: var(--muted); font-size: 13px; }
@@ -39,7 +39,20 @@
 <body>
   <div class="admin">
     <header><img src="/icon.svg" alt="" width="32" height="32"><h1>PocketPhotos Admin</h1><a class="btn" href="/">Open photos</a></header>
-    <p class="muted" style="margin:0">This page only opens on this phone (via <code>localhost</code>). Nobody on Wi-Fi or the internet can reach it.</p>
+    <p class="muted" style="margin:0">This page only opens on this phone (via <code>localhost</code>) and is protected by an admin password. Nobody on Wi-Fi or the internet can reach it.</p>
+
+    <section class="card hidden" id="gate">
+      <h3 id="gateTitle">Admin sign-in</h3>
+      <p class="muted" id="gateText" style="margin-top:0"></p>
+      <form id="gateForm" class="grid2">
+        <input type="password" id="gatePass" placeholder="Admin password or PIN" autocomplete="current-password" minlength="6" required>
+        <input type="password" id="gatePass2" placeholder="Repeat it" autocomplete="new-password" minlength="6" class="hidden">
+        <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit" id="gateBtn">Sign in</button><span class="err" id="gateErr"></span></div>
+      </form>
+    </section>
+
+    <div id="main" class="hidden" style="display:contents">
+    <div class="row"><button class="btn" id="adminPw">Change admin password</button><button class="btn" id="adminOut">Sign out of admin</button></div>
 
     <section class="card">
       <h3>Create a user</h3>
@@ -59,6 +72,7 @@
     <section class="card"><h3>Access from outside home Wi-Fi</h3><div id="remote"></div></section>
 
     <section class="card"><h3>Recent failed sign-ins</h3><div id="fails"></div></section>
+    </div>
   </div>
   <datalist id="folderList"></datalist>
 

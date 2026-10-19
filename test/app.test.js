@@ -110,10 +110,12 @@ test('dates are extracted from common Android filenames', () => {
 
 // ---------------- integration ----------------
 
+let adminCookie = null;
 function request(base, method, url, { body, headers = {}, cookie, raw } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url, base);
     const h = { ...headers };
+    if (!cookie && adminCookie && u.pathname.startsWith('/api/admin/')) cookie = adminCookie;
     // Browsers always send Origin on writes; pass Origin: null to simulate a client that omits it.
     if (method !== 'GET' && h.Origin === undefined) h.Origin = new URL(base).origin;
     if (h.Origin === null) delete h.Origin;
@@ -198,6 +200,31 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   assert.strictEqual(r.status, 403, 'admin writes need an Origin header');
   r = await request(base, 'GET', '/');
   assert.match(r.headers['content-security-policy'], /script-src 'self'/);
+
+  // admin password: required even on the phone itself
+  r = await request(base, 'GET', '/api/admin/overview');
+  assert.strictEqual(r.status, 401, 'admin API needs the admin password');
+  r = await request(base, 'POST', '/api/admin/users', { body: { id: 'sneaky' } });
+  assert.strictEqual(r.status, 401);
+  r = await request(base, 'GET', '/api/admin/auth');
+  assert.deepStrictEqual(r.json, { passwordSet: false, lockedMinutes: 0, authed: false });
+  r = await request(base, 'GET', '/api/admin/auth', { headers: remoteHost });
+  assert.strictEqual(r.status, 403, 'admin sign-in is phone-only too');
+  r = await request(base, 'POST', '/api/admin/setup', { body: { password: '123' } });
+  assert.strictEqual(r.status, 400, 'admin password min length');
+  r = await request(base, 'POST', '/api/admin/setup', { body: { password: '246810' } });
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers['set-cookie'][0], /HttpOnly; SameSite=Strict/);
+  r = await request(base, 'POST', '/api/admin/setup', { body: { password: 'takeover' } });
+  assert.strictEqual(r.status, 409, 'setup only works once');
+  assert.ok(!JSON.stringify(app.store.data.admin).includes('246810'), 'admin password stored hashed');
+  r = await request(base, 'POST', '/api/admin/login', { body: { password: 'wrong-pin' } });
+  assert.strictEqual(r.status, 401);
+  r = await request(base, 'POST', '/api/admin/login', { body: { password: '246810' } });
+  assert.strictEqual(r.status, 200);
+  adminCookie = r.headers['set-cookie'][0].split(';')[0];
+  r = await request(base, 'GET', '/api/admin/overview', { headers: remoteHost });
+  assert.strictEqual(r.status, 403, 'admin cookie does not help from other devices');
 
   // create users from the admin API
   r = await request(base, 'POST', '/api/admin/users', { body: { id: 'Alice', password: 'short' } });
@@ -573,6 +600,39 @@ test('HTTPS server with auto-generated certificate', { skip: !hasOpenssl && 'ope
     if (process.platform !== 'win32') assert.strictEqual(fs.statSync(app.cfg.tlsKey).mode & 0o777, 0o600);
   } finally {
     await app.close();
+    await fsp.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('admin password: lockout after 5 wrong tries, change signs out, reset command clears it', async () => {
+  const { AdminAuth } = require('../src/auth');
+  const { Store } = require('../src/store');
+  const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'pp-admin-'));
+  try {
+    const store = new Store(path.join(tmp, 'db.json'));
+    const a = new AdminAuth(store);
+    a.setup('correct-horse');
+    const req = (t) => ({ headers: { cookie: t ? `pp_admin=${t}` : '' } });
+    const tok = a.login('correct-horse');
+    assert.ok(a.valid(req(tok)));
+    assert.ok(!a.valid(req('forged')));
+    for (let i = 0; i < 5; i++) assert.throws(() => a.login('nope'), (e) => e.status === 401);
+    assert.throws(() => a.login('correct-horse'), (e) => e.status === 429, 'locked even with the right password');
+    a.fails.lockedUntil = 0;
+    assert.throws(() => a.change('wrong', 'new-secret'), (e) => e.status === 401);
+    a.change('correct-horse', 'new-secret');
+    assert.ok(!a.valid(req(tok)), 'changing the password signs out old sessions');
+    assert.ok(a.valid(req(a.login('new-secret'))));
+    await store.close();
+
+    const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'server.js'), '--reset-admin-password'], {
+      env: { ...process.env, PP_MEDIA_DIR: tmp, PP_DATA_DIR: tmp, PP_CONFIG: path.join(tmp, 'none.json') }, encoding: 'utf8',
+    });
+    assert.match(out, /Admin password removed/);
+    const s2 = new Store(path.join(tmp, 'db.json'));
+    s2.load();
+    assert.strictEqual(new AdminAuth(s2).isSet, false);
+  } finally {
     await fsp.rm(tmp, { recursive: true, force: true });
   }
 });

@@ -11,7 +11,7 @@ whole home Wi-Fi. It also runs on any Windows/macOS/Linux machine with Node.js.
 * Trash with automatic permanent deletion after 30 days
 * Reads EXIF dates/orientation/camera, video creation time/duration, Android filename dates
 * HEIC/TIFF previews converted on the fly (via ffmpeg)
-* **Multiple users** with ID + password, created on an admin page that only opens on the phone itself
+* **Multiple users** with ID + password, created on a password-protected admin page that only opens on the phone itself
 * **Each user only sees their own photos, videos and albums**
 * **Access from anywhere** over HTTPS (router port forwarding, free DuckDNS address, auto-generated certificate)
 * scrypt-hashed passwords, session cookies, CSRF + brute-force protection
@@ -58,6 +58,12 @@ Then open `http://<phone-ip>:8080` on any device on your Wi-Fi. The phone's IP i
 ### 5. Create users (on the phone)
 Open **`http://localhost:8080/admin`** in Chrome **on the S23 FE itself**. This admin page does not
 open from any other device – not on Wi-Fi and not from the internet.
+
+On the first visit it asks you to **choose an admin password or PIN** (at least 6 characters), so
+someone holding your unlocked phone can't manage users. The admin sign-in ends after 30 minutes of
+inactivity (or 12 hours, or a server restart); 5 wrong attempts lock it for 15 minutes. Change it with
+*Change admin password*. **Forgot it?** Stop the server and run `node server.js --reset-admin-password`,
+then start the server and choose a new one (users and photos are not touched).
 
 * **Generate user** – leave the fields empty for a random ID and a strong password, or type your own
   (e.g. `mom`). The credentials are shown once with a *Copy all* button; send them to the person.
@@ -167,7 +173,8 @@ export DuckDNS_Token="<your token>"
 
 ## Security notes
 * The admin page and admin API answer only to requests made on the phone itself
-  (`localhost`, checked by both source address and `Host` header to stop DNS-rebinding tricks).
+  (`localhost`, checked by both source address and `Host` header to stop DNS-rebinding tricks),
+  and additionally need the admin password (hashed with scrypt in `db.json`).
 * Plain HTTP is accepted only from home-network addresses; the internet must use HTTPS, and
   cookies are marked `Secure` there.
 * Passwords are hashed with scrypt; 10 wrong attempts per IP (and 60 from the whole internet)
