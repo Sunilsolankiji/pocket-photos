@@ -22,7 +22,8 @@
     <header class="topbar" id="topbar">
       <div class="brand"><img src="/icon.svg" alt="" width="32" height="32"><span>PocketPhotos</span></div>
       <div class="search">
-        <input id="search" type="search" placeholder="Search name, date (2024-05, may), camera…" autocomplete="off">
+        <svg class="ui-icon search-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+        <input id="search" type="search" aria-label="Search photos by name, date or camera" placeholder="Search your memories" autocomplete="off">
       </div>
       <button class="btn upload-btn" id="uploadBtn" title="Upload" aria-label="Upload photos and videos"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5"/></svg><span class="hide-sm">Upload</span></button>
       <input id="fileInput" type="file" accept="image/*,video/*,.heic,.heif" multiple hidden>
@@ -42,13 +43,13 @@
       <button class="icon-btn danger" data-act="delete" title="Delete forever" aria-label="Delete forever"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3m3 0-.8 13H7.8L7 7m2.5 3.5 5 5m0-5-5 5"/></svg></button>
     </header>
 
-    <nav class="sidebar" id="sidebar">
-      <a href="#/" data-view="all"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span>Photos</span></a>
+    <nav class="sidebar" id="sidebar" aria-label="Library">
+      <a href="#/" data-view="all"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="15.5" cy="8.5" r="1.5"/><path d="m3 16 5-5 9 10m-3-4 3-3 4 4"/></svg><span>Photos</span></a>
       <a href="#/favorites" data-view="favorites"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.1-8.8 10.3-8.8 10.3S3.2 13.9 3.2 8.8A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.8 2.4Z"/></svg><span>Favorites</span></a>
       <a href="#/videos" data-view="videos"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>Videos</span></a>
       <a href="#/albums" data-view="albums"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M6 4h12"/></svg><span>Albums</span></a>
       <a href="#/trash" data-view="trash"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg><span>Trash</span></a>
-      <a href="#/settings" data-view="settings"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a8 8 0 0 0 0-2l1.4-1.1-1.5-2.6-1.7.7a8 8 0 0 0-1.7-1L15.6 7h-3l-.3 2a8 8 0 0 0-1.7 1l-1.8-.7-1.5 2.6L8.7 13a8 8 0 0 0 0 2l-1.4 1.1 1.5 2.6 1.8-.7a8 8 0 0 0 1.7 1l.3 2h3l.3-2a8 8 0 0 0 1.7-1l1.7.7 1.5-2.6z"/></svg><span>Settings</span></a>
+      <a href="#/settings" data-view="settings"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h5m6 0h5M4 17h9m6 0h1"/><circle cx="12" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></svg><span>Settings</span></a>
     </nav>
 
     <main id="main">
@@ -71,9 +72,9 @@
       <button class="icon-btn" id="vRestore" title="Restore" aria-label="Restore"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1.5 7M4 5v5h5"/></svg></button>
       <button class="icon-btn danger" id="vTrash" title="Move to trash" aria-label="Move to trash"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
     </div>
-    <button class="nav prev" id="vPrev" aria-label="Previous">‹</button>
+    <button class="nav prev" id="vPrev" aria-label="Previous"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
     <div class="stage" id="stage"></div>
-    <button class="nav next" id="vNext" aria-label="Next">›</button>
+    <button class="nav next" id="vNext" aria-label="Next"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
     <aside class="info hidden" id="infoPanel"></aside>
   </div>
 
