@@ -1,0 +1,18 @@
+{
+  "name": "pocket-photos",
+  "version": "1.0.0",
+  "description": "Self-hosted Google Photos-like server for photos and videos. Runs on Android (Termux) with an external SSD, or any machine with Node.js.",
+  "main": "server.js",
+  "bin": {
+    "pocket-photos": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.15"
+  },
+  "license": "MIT",
+  "private": true
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111318">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>PocketPhotos</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Login -->
+  <section id="auth" class="auth hidden">
+    <form id="authForm" class="auth-card">
+      <img src="/icon.svg" alt="" width="64" height="64">
+      <h1>PocketPhotos</h1>
+      <p id="authHint">Sign in to your library</p>
+      <input id="authUser" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="User ID" required>
+      <input id="authPass" type="password" autocomplete="current-password" placeholder="Password" required>
+      <button type="submit" class="btn primary" id="authBtn">Sign in</button>
+      <p id="authErr" class="err"></p>
+      <p id="authAdmin" class="hidden"><a href="/admin">Open admin page →</a></p>
+    </form>
+  </section>
+
+  <div id="app" class="hidden">
+    <header class="topbar" id="topbar">
+      <div class="brand"><img src="/icon.svg" alt="" width="28" height="28"><span>PocketPhotos</span></div>
+      <div class="search">
+        <input id="search" type="search" placeholder="Search name, date (2024-05, may), camera…" autocomplete="off">
+      </div>
+      <button class="btn" id="uploadBtn" title="Upload">⇪ <span class="hide-sm">Upload</span></button>
+      <input id="fileInput" type="file" accept="image/*,video/*,.heic,.heif" multiple hidden>
+    </header>
+
+    <header class="topbar selbar hidden" id="selbar">
+      <button class="icon-btn" id="selClear" title="Clear selection">✕</button>
+      <span id="selCount">0 selected</span>
+      <div class="spacer"></div>
+      <button class="icon-btn" data-act="favorite" title="Favorite">♥</button>
+      <button class="icon-btn" data-act="album" title="Add to album">＋</button>
+      <button class="icon-btn" data-act="download" title="Download">⭳</button>
+      <button class="icon-btn" data-act="removeFromAlbum" title="Remove from album">⊖</button>
+      <button class="icon-btn" data-act="restore" title="Restore">↺</button>
+      <button class="icon-btn danger" data-act="trash" title="Move to trash">🗑</button>
+      <button class="icon-btn danger" data-act="delete" title="Delete forever">✖</button>
+    </header>
+
+    <nav class="sidebar" id="sidebar">
+      <a href="#/" data-view="all">🖼 <span>Photos</span></a>
+      <a href="#/favorites" data-view="favorites">♥ <span>Favorites</span></a>
+      <a href="#/videos" data-view="videos">▶ <span>Videos</span></a>
+      <a href="#/albums" data-view="albums">▤ <span>Albums</span></a>
+      <a href="#/trash" data-view="trash">🗑 <span>Trash</span></a>
+      <a href="#/settings" data-view="settings">⚙ <span>Settings</span></a>
+    </nav>
+
+    <main id="main">
+      <div id="viewHeader" class="view-header"></div>
+      <div id="content"></div>
+      <div id="sentinel"></div>
+      <div id="empty" class="empty hidden"></div>
+    </main>
+  </div>
+
+  <!-- Fullscreen viewer -->
+  <div id="viewer" class="viewer hidden" tabindex="-1">
+    <div class="viewer-top">
+      <button class="icon-btn" id="vClose" title="Close">←</button>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="vInfo" title="Info">ⓘ</button>
+      <button class="icon-btn" id="vFav" title="Favorite">♡</button>
+      <button class="icon-btn" id="vAlbum" title="Add to album">＋</button>
+      <a class="icon-btn" id="vDownload" title="Download">⭳</a>
+      <button class="icon-btn" id="vRestore" title="Restore">↺</button>
+      <button class="icon-btn danger" id="vTrash" title="Move to trash">🗑</button>
+    </div>
+    <button class="nav prev" id="vPrev" aria-label="Previous">‹</button>
+    <div class="stage" id="stage"></div>
+    <button class="nav next" id="vNext" aria-label="Next">›</button>
+    <aside class="info hidden" id="infoPanel"></aside>
+  </div>
+
+  <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <div id="uploads" class="uploads hidden"></div>
+  <div id="drop" class="drop hidden">Drop photos & videos to upload</div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

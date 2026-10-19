@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111318">
+  <meta name="robots" content="noindex">
+  <title>PocketPhotos Admin</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { overflow-y: auto; }
+    .admin { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; display: flex; flex-direction: column; gap: 14px; }
+    .admin header { display: flex; align-items: center; gap: 10px; }
+    .admin header h1 { font-size: 22px; margin: 0; flex: 1; }
+    .admin input[type=text], .admin input[type=password] { background: var(--bg); border: 1px solid #333846; color: var(--text); padding: 10px; border-radius: 10px; min-width: 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
+    .muted { color: var(--muted); font-size: 13px; }
+    .user { border-top: 1px solid #2c303b; padding: 14px 0 6px; }
+    .user:first-of-type { border-top: 0; }
+    .user h4 { margin: 0 0 4px; font-size: 17px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+    .chip { background: var(--panel2); border-radius: 14px; padding: 4px 10px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+    .chip button { background: none; border: 0; color: var(--danger); cursor: pointer; padding: 0; font-size: 14px; }
+    .chip.home { background: #20324d; }
+    .sess { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; margin: 2px 0; }
+    .sess button { font-size: 12px; padding: 2px 8px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .cred { background: var(--bg); border-radius: 10px; padding: 12px; font-family: ui-monospace, monospace; font-size: 18px; word-break: break-all; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    td, th { text-align: left; padding: 5px 6px; border-bottom: 1px solid #2c303b; }
+    th { color: var(--muted); font-weight: 500; }
+    .ok { color: #81c995; } .bad { color: var(--danger); } .warn { color: #fdd663; }
+    ol { padding-left: 20px; } li { margin: 4px 0; }
+    code { background: var(--bg); padding: 1px 5px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <div class="admin">
+    <header><img src="/icon.svg" alt="" width="32" height="32"><h1>PocketPhotos Admin</h1><a class="btn" href="/">Open photos</a></header>
+    <p class="muted" style="margin:0">This page only opens on this phone (via <code>localhost</code>). Nobody on Wi-Fi or the internet can reach it.</p>
+
+    <section class="card">
+      <h3>Create a user</h3>
+      <p class="muted" style="margin-top:0">Leave fields empty to generate a random ID and a strong password. Each user only sees photos and videos in their own folders.</p>
+      <form id="newUser" class="grid2">
+        <input type="text" id="nuId" placeholder="User ID (optional, e.g. mom)" autocomplete="off" autocapitalize="none" maxlength="32">
+        <input type="text" id="nuPass" placeholder="Password (optional, min 8)" autocomplete="off" autocapitalize="none">
+        <input type="text" id="nuFolder" placeholder="Also give access to existing folder (optional, e.g. DCIM)" list="folderList" autocomplete="off" style="grid-column:1/-1">
+        <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Generate user</button><span class="err" id="nuErr"></span></div>
+      </form>
+    </section>
+
+    <section class="card"><h3>Users</h3><div id="users"></div></section>
+
+    <section class="card"><h3>Library</h3><div id="library"></div></section>
+
+    <section class="card"><h3>Access from outside home Wi-Fi</h3><div id="remote"></div></section>
+
+    <section class="card"><h3>Recent failed sign-ins</h3><div id="fails"></div></section>
+  </div>
+  <datalist id="folderList"></datalist>
+
+  <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/admin.js"></script>
+</body>
+</html>

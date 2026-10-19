@@ -1,0 +1,20 @@
+{
+    "mediaDir":  "/storage/XXXX-XXXX/Photos",
+    "dataDir":  "",
+    "port":  8080,
+    "host":  "0.0.0.0",
+    "httpsPort":  8443,
+    "tlsCert":  "",
+    "tlsKey":  "",
+    "duckdnsDomain":  "",
+    "duckdnsToken":  "",
+    "publicHost":  "",
+    "allowRemoteHttp":  false,
+    "workers":  2,
+    "thumbSize":  360,
+    "previewSize":  2048,
+    "uploadDir":  "Users",
+    "rescanMinutes":  15,
+    "trashDays":  30,
+    "pregenerate":  true
+}
