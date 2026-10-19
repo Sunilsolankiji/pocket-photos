@@ -149,7 +149,8 @@ Requires Node.js 18.15+ (ffmpeg recommended).
 
 ## Tests
 ```sh
-npm test        # uses ffmpeg/ffprobe/openssl from PATH (or PP_FFMPEG / PP_FFPROBE / PP_OPENSSL) when available
+npm test        # Node's built-in test runner; optional external tools are used when available
+npm run check   # syntax-check server and browser JavaScript without installing dependencies
 ```
 
 ## Access from outside your home Wi-Fi

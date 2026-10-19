@@ -274,7 +274,16 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   // static UI
   r = await request(base, 'GET', '/');
   assert.strictEqual(r.status, 200);
-  assert.match(r.buf.toString(), /PocketPhotos/);
+  const html = r.buf.toString();
+  assert.match(html, /PocketPhotos/);
+  let scriptPosition = -1;
+  for (const script of ['/app.js', '/grid.js', '/viewer.js', '/pages.js', '/search.js', '/uploads.js', '/init.js']) {
+    const position = html.indexOf(`<script src="${script}"></script>`);
+    assert.ok(position > scriptPosition, `${script} loads in order`);
+    scriptPosition = position;
+    r = await request(base, 'GET', script);
+    assert.strictEqual(r.status, 200, `${script} is served`);
+  }
   r = await request(base, 'GET', '/x', { raw: '/..%2fsrc%2fapp.js' });
   assert.ok(r.status === 403 || r.status === 404);
   assert.ok(!r.buf.toString().includes('createApp'));

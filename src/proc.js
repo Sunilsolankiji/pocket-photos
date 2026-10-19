@@ -43,18 +43,20 @@ function run(cmd, args, { timeout = 120000 } = {}) {
     }
     const out = [];
     let err = '';
+    let timedOut = false;
     p.stdout.on('data', (d) => out.push(d));
     p.stderr.on('data', (d) => {
       if (err.length < 8000) err += d;
     });
-    const timer = setTimeout(() => p.kill('SIGKILL'), timeout);
+    const timer = setTimeout(() => { timedOut = p.kill('SIGKILL'); }, timeout);
     p.on('error', (e) => {
       clearTimeout(timer);
       reject(e);
     });
     p.on('close', (code) => {
       clearTimeout(timer);
-      if (code === 0) resolve(Buffer.concat(out));
+      if (timedOut) reject(new Error(`${cmd} timed out after ${timeout}ms`));
+      else if (code === 0) resolve(Buffer.concat(out));
       else reject(new Error(`${cmd} exited with ${code}: ${err.trim().slice(-500)}`));
     });
   });

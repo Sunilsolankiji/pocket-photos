@@ -20,7 +20,8 @@ class Store {
     for (const f of [this.file, this.file + '.tmp']) {
       try {
         const d = JSON.parse(fs.readFileSync(f, 'utf8'));
-        Object.assign(this.data, d);
+        if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('database root must be an object');
+        this.data = { ...this.data, ...d };
         for (const k of DICTS) this.data[k] = dict(this.data[k]);
         return;
       } catch (e) {
@@ -39,11 +40,12 @@ class Store {
 
   flush() {
     const json = JSON.stringify(this.data);
-    this.chain = this.chain.then(async () => {
+    const write = async () => {
       const tmp = this.file + '.tmp';
       await fsp.writeFile(tmp, json);
       await fsp.rename(tmp, this.file);
-    });
+    };
+    this.chain = this.chain.then(write, write);
     return this.chain;
   }
 

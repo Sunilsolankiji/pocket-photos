@@ -15,6 +15,7 @@ const { isLocalRequest, isPrivate } = require('./net');
 const { ensureCert, readCert, describeCert, DuckDns, publicIp } = require('./remote');
 const { hasTool } = require('./proc');
 const { mimeOf, isWebImage } = require('./meta');
+const { Router, authorizeRoute } = require('./router');
 const { version } = require('../package.json');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -187,14 +188,10 @@ async function createApp(cfg) {
   const duck = new DuckDns(settings);
   const tls = { enabled: false, server: null, address: null, mtime: 0, info: null, error: null };
 
-  const routes = [];
+  const router = new Router();
   // access: 'open' (no login), 'user' (valid session), 'local' (only from the phone itself),
   // 'admin' (from the phone itself AND signed in with the admin password)
-  const route = (method, pattern, handler, access = 'user') => {
-    const keys = [];
-    const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)')) + '$');
-    routes.push({ method, re, keys, handler, access });
-  };
+  const route = (method, pattern, handler, access = 'user') => router.add(method, pattern, handler, access);
   const secure = (req) => !!req.socket.encrypted;
 
   // ----- profile (each user sees and edits only their own) -----
@@ -542,36 +539,13 @@ async function createApp(cfg) {
       return serveStatic(req, res, url.pathname);
     }
     const method = req.method === 'HEAD' ? 'GET' : req.method;
-    for (const r of routes) {
-      if (r.method !== method) continue;
-      const m = r.re.exec(url.pathname);
-      if (!m) continue;
-      if (method !== 'GET') {
-        const origin = req.headers.origin;
-        if (origin) {
-          let host = null;
-          try {
-            host = new URL(origin).host;
-          } catch {
-            /* invalid origin */
-          }
-          if (host !== req.headers.host) throw new HttpError(403, 'Cross-origin request blocked');
-        } else if (r.access === 'admin' || r.access === 'local') {
-          throw new HttpError(403, 'Admin changes must come from the admin page');
-        }
-      }
-      if ((r.access === 'admin' || r.access === 'local') && !isLocalRequest(req)) throw new HttpError(403, 'Admin is only available on the phone itself (http://localhost)');
-      if (r.access === 'admin' && !adminAuth.valid(req)) throw new HttpError(401, adminAuth.isSet ? 'Admin sign-in required' : 'Set an admin password first');
-      if (r.access === 'user') {
-        const s = auth.session(req);
-        if (!s) throw new HttpError(401, 'Login required');
-        req.user = s.user;
-      }
-      const params = {};
-      r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
-      return r.handler(req, res, params, url);
-    }
-    throw new HttpError(404, 'Not found');
+    const found = router.match(method, url.pathname);
+    if (!found) throw new HttpError(404, 'Not found');
+    const { route: r, match: m } = found;
+    authorizeRoute(req, method, r, { auth, adminAuth, isLocalRequest });
+    const params = {};
+    r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
+    return r.handler(req, res, params, url);
   }
 
   const listener = (req, res) => {
