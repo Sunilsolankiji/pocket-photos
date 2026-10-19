@@ -13,6 +13,7 @@ whole home Wi-Fi. It also runs on any Windows/macOS/Linux machine with Node.js.
 * HEIC/TIFF previews converted on the fly (via ffmpeg)
 * **Multiple users** with ID + password, created on a password-protected admin page that only opens on the phone itself
 * **Each user only sees their own photos, videos and albums**
+* **User profiles**: display name, profile photo, contact details, birthday, and personal theme / accent colour / photo size / start page
 * **Access from anywhere** over HTTPS (router port forwarding, free DuckDNS address, auto-generated certificate)
 * scrypt-hashed passwords, session cookies, CSRF + brute-force protection
 * Installable to your home screen (PWA manifest)
@@ -76,6 +77,12 @@ then start the server and choose a new one (users and photos are not touched).
 
 Users sign in at `http://<phone-ip>:8080` with their **User ID + password** and can change their
 own password in *Settings*.
+
+**Profile** (tap the round avatar at the top right): each user can set a display name, profile photo
+(from their own photos, or *Use as profile photo* in a photo's ⓘ info), email, phone and birthday,
+and personalise the app – theme (auto/dark/light), accent colour, photo size and the page the app opens on.
+The Photos page greets them by name (and wishes them a happy birthday). These details are private to the
+user; the admin page only shows the display name. Signing out resets the look to the default.
 
 > Upgrading from the single-password version? Your old password now belongs to user **`owner`**,
 > who keeps access to the whole drive.

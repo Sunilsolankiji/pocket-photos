@@ -176,7 +176,8 @@ class Auth {
     const now = Date.now();
     const sessions = Object.entries(this.store.data.sessions).filter(([, s]) => s.expires > now);
     return Object.values(this.users).map((u) => ({
-      id: u.id, created: u.created, changed: u.changed || null, lastLogin: u.lastLogin || null,
+      id: u.id, name: (u.profile && typeof u.profile.name === 'string' && u.profile.name) || '',
+      created: u.created, changed: u.changed || null, lastLogin: u.lastLogin || null,
       home: this.homeFolder(u.id), folders: u.folders || [],
       sessions: sessions.filter(([, s]) => s.user === u.id).map(([k, s]) => ({
         key: k.slice(0, 16), created: s.created, lastSeen: s.lastSeen || s.created, ip: s.ip || '', ua: s.ua || '',

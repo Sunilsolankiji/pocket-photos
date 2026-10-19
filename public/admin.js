@@ -99,7 +99,7 @@ function renderUsers() {
           <button class="btn" data-act="revoke" data-key="${esc(s.key)}">Sign out</button></div>`).join('')
       : '<div class="sess">Not signed in anywhere</div>';
     return `<div class="user" data-id="${esc(u.id)}">
-      <h4>${esc(u.id)} <span class="muted">${st.photos} photos · ${st.videos} videos · ${st.albums} albums · ${fmtBytes(st.bytes)}</span></h4>
+      <h4>${esc(u.id)}${u.name ? ` <span class="muted">(${esc(u.name)})</span>` : ''} <span class="muted">${st.photos} photos · ${st.videos} videos · ${st.albums} albums · ${fmtBytes(st.bytes)}</span></h4>
       <div class="muted">Created ${esc(fmtTime(u.created))} · last sign-in ${esc(fmtTime(u.lastLogin))}</div>
       <div class="chips">
         <span class="chip home" title="Uploads from this user go here">${esc(u.home)} (uploads)</span>

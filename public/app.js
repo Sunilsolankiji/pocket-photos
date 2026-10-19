@@ -122,9 +122,51 @@ async function pickAlbum(ids) {
   });
 }
 
+// ---------- profile & personalisation ----------
+const ACCENTS = {
+  blue: ['#8ab4f8', '#1a73e8'], green: ['#81c995', '#188038'], yellow: ['#fdd663', '#b06000'], red: ['#f28b82', '#d93025'],
+  purple: ['#c58af9', '#9334e6'], teal: ['#78d9ec', '#007b83'], orange: ['#fcad70', '#e8710a'],
+};
+const START_PAGES = { all: 'Photos', favorites: 'Favorites', videos: 'Videos', albums: 'Albums' };
+const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+const initials = (p) => ((p.name || p.id || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase();
+const avatarHtml = (p) => (p && p.avatar ? `<img src="/api/media/${p.avatar.id}/thumb?v=${p.avatar.v}" alt="">` : `<span>${esc(p ? initials(p) : '')}</span>`);
+function isBirthday(p) {
+  if (!p || !p.birthday) return false;
+  const now = new Date();
+  return p.birthday.slice(5) === `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+function applyProfile(p) {
+  S.profile = p || null;
+  const theme = p && p.theme !== 'auto' ? p.theme : darkMq.matches ? 'dark' : 'light';
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.dataset.grid = (p && p.grid) || 'medium';
+  const acc = ACCENTS[(p && p.accent) || 'blue'] || ACCENTS.blue;
+  root.style.setProperty('--accent', acc[theme === 'light' ? 1 : 0]);
+  $('meta[name=theme-color]').content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#111318';
+  const me = $('#meBtn');
+  me.innerHTML = avatarHtml(p);
+  me.title = p ? `Profile – ${p.name || p.id}` : 'Profile';
+}
+darkMq.addEventListener('change', () => applyProfile(S.profile));
+async function saveProfile(update) {
+  const p = await api('PATCH', '/api/profile', update);
+  applyProfile(p);
+  return p;
+}
+function greeting(p) {
+  if (!p) return '';
+  const name = esc((p.name || p.id).split(/\s+/)[0]);
+  if (isBirthday(p)) return `🎂 Happy birthday, ${name}!`;
+  const h = new Date().getHours();
+  return `${h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}, ${name}`;
+}
+
 // ---------- auth ----------
 function showAuth() {
   const st = S.status || {};
+  applyProfile(null);
   $('#app').classList.add('hidden');
   $('#viewer').classList.add('hidden');
   $('#auth').classList.remove('hidden');
@@ -154,11 +196,16 @@ async function boot() {
     return;
   }
   if (!S.status.authed) return showAuth();
+  applyProfile(S.status.profile);
   $('#auth').classList.add('hidden');
   $('#app').classList.remove('hidden');
   $('#uploadBtn').classList.toggle('hidden', S.status.readOnly);
+  const start = S.profile && S.profile.start;
+  if (!booted && start && start !== 'all' && /^#?\/?$/.test(location.hash)) history.replaceState(null, '', '#/' + start);
+  booted = true;
   route();
 }
+let booted = false;
 
 // ---------- routing ----------
 function route() {
@@ -170,6 +217,7 @@ function route() {
   window.scrollTo(0, 0);
   if (v === 'albums') return showAlbums();
   if (v === 'settings') return showSettings();
+  if (v === 'profile') return showProfile();
   if (v === 'album' && arg) return openGrid('album', decodeURIComponent(arg));
   return openGrid(['favorites', 'videos', 'trash'].includes(v) ? v : 'all');
 }
@@ -231,7 +279,7 @@ function renderHeader() {
       try { const r = await api('POST', '/api/trash/empty'); toast(`Deleted ${plural(r.count, 'item')}`); openGrid('trash'); } catch (e) { toast(e.message); }
     };
   } else {
-    h.innerHTML = `<h2>${titles[S.view]}</h2><span id="countLbl" style="color:var(--muted)"></span>`;
+    h.innerHTML = `${S.view === 'all' && !S.q && S.profile ? `<div class="greet${isBirthday(S.profile) ? ' bday' : ''}">${greeting(S.profile)}</div>` : ''}<h2>${titles[S.view]}</h2><span id="countLbl" style="color:var(--muted)"></span>`;
   }
 }
 
@@ -551,7 +599,10 @@ async function loadInfo() {
       ['Location', `<code>${esc(d.path)}</code>`],
       d.albums.length ? ['Albums', d.albums.map((a) => `<a href="#/album/${a.id}">${esc(a.name)}</a>`).join(', ')] : null,
     ].filter(Boolean);
-    p.innerHTML = `<h3>Info</h3><div class="kv">${rows.map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join('')}</div>`;
+    p.innerHTML = `<h3>Info</h3><div class="kv">${rows.map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join('')}</div>
+      ${d.type === 'image' && !d.trashed ? '<div class="row" style="margin-top:14px"><button class="btn" id="setAvatar">Use as profile photo</button></div>' : ''}`;
+    const sa = $('#setAvatar');
+    if (sa) sa.onclick = () => saveProfile({ avatar: it.id }).then(() => toast('Profile photo updated')).catch((e) => toast(e.message));
   } catch (e) {
     p.innerHTML += `<p class="err">${esc(e.message)}</p>`;
   }
@@ -665,7 +716,7 @@ async function showSettings() {
       <div>ffprobe</div><div>${s.ffprobe ? '✅ available' : '❌ missing'}</div>
       <div>Thumbnail jobs</div><div>${s.queue} pending</div><div>Version</div><div>${esc(s.version)}</div></div></div>
     <div class="card"><h3>Account</h3><p style="margin-top:0">Signed in as <b>${esc(S.status.user || '')}</b></p>
-      <div class="row"><button class="btn" id="chPass">Change password</button><button class="btn danger" id="logout">Sign out</button>
+      <div class="row"><a class="btn" href="#/profile">Edit profile</a><button class="btn" id="chPass">Change password</button><button class="btn danger" id="logout">Sign out</button>
       ${S.status.local ? '<a class="btn" href="/admin">Admin page</a>' : ''}</div></div>
   </div>`;
   const renderScan = (sc) => {
@@ -713,13 +764,122 @@ async function showSettings() {
   };
 }
 
+// ---------- profile page ----------
+async function showProfile() {
+  resetContent();
+  S.view = 'profile';
+  S.done = true;
+  const gen = S.gen;
+  $('#viewHeader').innerHTML = '<h2>Profile</h2>';
+  let p;
+  try { p = await api('GET', '/api/profile'); } catch (e) { return toast(e.message); }
+  if (gen !== S.gen) return;
+  applyProfile(p);
+  const today = new Date();
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const seg = (id, opts, cur) => `<div class="seg" id="${id}" role="radiogroup">${Object.entries(opts).map(([v, label]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}">${label}</button>`).join('')}</div>`;
+  $('#content').innerHTML = `<div class="cards">
+    <div class="card profile-head">
+      <button class="avatar big" id="pfAvatar" title="Change profile photo"></button>
+      <div class="pf-who"><div class="pf-name" id="pfTitle"></div><div class="muted" id="pfSub"></div></div>
+    </div>
+    <form class="card" id="pfForm" novalidate><h3>Personal details</h3>
+      <label class="field"><span>Display name</span><input type="text" id="pfName" maxlength="60" autocomplete="name" placeholder="e.g. Sunil Solanki"></label>
+      <label class="field"><span>Email</span><input type="email" id="pfEmail" maxlength="254" autocomplete="email" placeholder="name@example.com"></label>
+      <label class="field"><span>Phone</span><input type="tel" id="pfPhone" maxlength="24" autocomplete="tel" placeholder="+91 98765 43210"></label>
+      <label class="field"><span>Birthday</span><input type="date" id="pfBday" min="1900-01-01" max="${ymd(today)}"></label>
+      <p class="err" id="pfErr"></p>
+      <div class="row"><button class="btn primary" type="submit">Save details</button></div>
+      <p class="muted small">Stored only on your PocketPhotos server. Other users can't see them; the admin page shows your display name.</p>
+    </form>
+    <div class="card"><h3>Personalise</h3>
+      <div class="field"><span>Theme</span>${seg('pfTheme', { auto: 'Auto', dark: 'Dark', light: 'Light' }, p.theme)}</div>
+      <div class="field"><span>Accent colour</span><div class="swatches" id="pfAccent" role="radiogroup">${Object.entries(ACCENTS).map(([k, c]) => `<button type="button" role="radio" data-v="${k}" title="${k}" aria-checked="${k === p.accent}" style="background:${c[0]}"></button>`).join('')}</div></div>
+      <div class="field"><span>Photo size</span>${seg('pfGrid', { small: 'Small', medium: 'Medium', large: 'Large' }, p.grid)}</div>
+      <div class="field"><span>Open the app on</span><select id="pfStart">${Object.entries(START_PAGES).map(([k, v]) => `<option value="${k}"${k === p.start ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+    </div>
+  </div>`;
+  const renderHead = (q) => {
+    $('#pfTitle').textContent = q.name || q.id;
+    let sub = `@${q.id}${q.created ? ` · member since ${new Date(q.created).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : ''}`;
+    if (q.birthday) sub += isBirthday(q) ? ' · 🎂 Happy birthday!' : ` · 🎂 ${new Date(q.birthday + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`;
+    $('#pfSub').textContent = sub;
+    $('#pfAvatar').innerHTML = avatarHtml(q) + '<span class="cam">✎</span>';
+  };
+  renderHead(p);
+  $('#pfName').value = p.name;
+  $('#pfEmail').value = p.email;
+  $('#pfPhone').value = p.phone;
+  $('#pfBday').value = p.birthday;
+  $('#pfForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('#pfErr').textContent = '';
+    try {
+      const q = await saveProfile({ name: $('#pfName').value, email: $('#pfEmail').value, phone: $('#pfPhone').value, birthday: $('#pfBday').value });
+      if (gen === S.gen) renderHead(q);
+      toast('Profile saved');
+    } catch (err) { $('#pfErr').textContent = err.message; }
+  };
+  const pick = (sel, key) => {
+    $(sel).onclick = async (e) => {
+      const b = e.target.closest('[data-v]');
+      if (!b || b.getAttribute('aria-checked') === 'true') return;
+      const prev = S.profile;
+      $$('[data-v]', $(sel)).forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+      applyProfile({ ...prev, [key]: b.dataset.v });
+      try { await saveProfile({ [key]: b.dataset.v }); } catch (err) {
+        applyProfile(prev);
+        $$('[data-v]', $(sel)).forEach((x) => x.setAttribute('aria-checked', String(x.dataset.v === prev[key])));
+        toast(err.message);
+      }
+    };
+  };
+  pick('#pfTheme', 'theme');
+  pick('#pfAccent', 'accent');
+  pick('#pfGrid', 'grid');
+  $('#pfStart').onchange = (e) => saveProfile({ start: e.target.value }).then(() => toast(`The app will open on ${START_PAGES[e.target.value]}`)).catch((err) => toast(err.message));
+  $('#pfAvatar').onclick = async () => {
+    const id = await pickAvatar();
+    if (id === undefined) return;
+    try { renderHead(await saveProfile({ avatar: id })); toast(id ? 'Profile photo updated' : 'Profile photo removed'); } catch (e) { toast(e.message); }
+  };
+}
+
+/** Resolves to a photo id, '' to remove the photo, or undefined when cancelled. */
+function pickAvatar() {
+  return new Promise((res) => {
+    const c = modal(`<h3>Choose a profile photo</h3><div class="avatar-pick" id="apGrid"></div>
+      <div class="row"><button class="btn hidden" id="apMore">Load more</button><div class="spacer"></div>
+      ${S.profile && S.profile.avatar ? '<button class="btn danger" data-r="">Remove photo</button>' : ''}<button class="btn" data-r="cancel">Cancel</button></div>`, () => res(undefined));
+    let offset = 0;
+    const more = async () => {
+      try {
+        const r = await api('GET', '/api/media?' + new URLSearchParams({ view: 'all', offset, limit: 60 }));
+        offset += r.items.length;
+        $('#apGrid').insertAdjacentHTML('beforeend', r.items.filter((it) => it.type === 'image')
+          .map((it) => `<button data-r="${it.id}" title="${esc(it.name)}"><img loading="lazy" src="${thumbUrl(it)}" alt=""></button>`).join(''));
+        $('#apMore').classList.toggle('hidden', offset >= r.total || !r.items.length);
+        if (!$('#apGrid').children.length && offset >= r.total) $('#apGrid').innerHTML = '<p class="muted">No photos yet.</p>';
+      } catch (e) { toast(e.message); }
+    };
+    $('#apMore').onclick = more;
+    c.onclick = (e) => {
+      const b = e.target.closest('[data-r]');
+      if (!b) return;
+      closeModal();
+      res(b.dataset.r === 'cancel' ? undefined : b.dataset.r);
+    };
+    more();
+  });
+}
+
 // ---------- search ----------
 let searchT = null;
 $('#search').addEventListener('input', (e) => {
   clearTimeout(searchT);
   searchT = setTimeout(() => {
     S.q = e.target.value.trim();
-    if (['albums', 'settings'].includes(S.view)) location.hash = '#/';
+    if (['albums', 'settings', 'profile'].includes(S.view)) location.hash = '#/';
     else openGrid(S.view, S.album);
   }, 300);
 });

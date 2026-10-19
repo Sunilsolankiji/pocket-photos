@@ -10,6 +10,7 @@ const { Store } = require('./store');
 const { Thumbs } = require('./thumbs');
 const { Library, HttpError, slim } = require('./library');
 const { Auth, AdminAuth } = require('./auth');
+const { readProfile, cleanUpdate } = require('./profile');
 const { isLocalRequest, isPrivate } = require('./net');
 const { ensureCert, readCert, describeCert, DuckDns, publicIp } = require('./remote');
 const { hasTool } = require('./proc');
@@ -196,11 +197,28 @@ async function createApp(cfg) {
   };
   const secure = (req) => !!req.socket.encrypted;
 
+  // ----- profile (each user sees and edits only their own) -----
+  const avatarOk = (user, id) => {
+    try {
+      const it = lib.get(id, user);
+      return it.type === 'image' && !it.trashed;
+    } catch {
+      return false;
+    }
+  };
+  const profileOf = (id) => {
+    const u = auth.users[id];
+    const p = readProfile(u);
+    const avatar = p.avatar && avatarOk(id, p.avatar) ? { id: p.avatar, v: slim(lib.get(p.avatar)).v } : null;
+    return { id, created: u.created, ...p, avatar };
+  };
+
   // ----- auth -----
   route('GET', '/api/status', async (req, res) => {
     const s = auth.session(req);
     sendJson(res, 200, {
       version, hasUsers: auth.hasUsers, authed: !!s, user: s ? s.user : null, local: isLocalRequest(req),
+      profile: s ? profileOf(s.user) : null,
       readOnly: lib.readOnly, ffmpeg: !!tools.ffmpeg, ffprobe: !!tools.ffprobe, trashDays: cfg.trashDays,
     });
   }, 'open');
@@ -228,6 +246,15 @@ async function createApp(cfg) {
     const { current, password } = await readJson(req);
     auth.changeOwnPassword(req, current, password);
     sendJson(res, 200, { ok: true });
+  });
+
+  route('GET', '/api/profile', async (req, res) => sendJson(res, 200, profileOf(req.user)));
+  route('PATCH', '/api/profile', async (req, res) => {
+    const update = cleanUpdate(await readJson(req, 16 * 1024), (id) => avatarOk(req.user, id));
+    const u = auth.users[req.user];
+    u.profile = { ...readProfile(u), ...update };
+    store.save();
+    sendJson(res, 200, profileOf(req.user));
   });
 
   // ----- admin sign-in (phone only; the admin password protects everything below) -----

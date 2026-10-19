@@ -298,6 +298,44 @@ test('full server flow', { timeout: 120000 }, async (t) => {
   }
   if (hasFfmpeg) assert.strictEqual(r.json.items[0].id, img.id, 'newest first');
 
+  // profile: own details + personalisation, validated, private to the user
+  r = await request(base, 'GET', '/api/profile');
+  assert.strictEqual(r.status, 401);
+  r = await request(base, 'GET', '/api/profile', { cookie });
+  assert.strictEqual(r.json.id, 'alice');
+  assert.strictEqual(r.json.theme, 'auto');
+  assert.strictEqual(r.json.avatar, null);
+  r = await request(base, 'PATCH', '/api/profile', { cookie, body: {
+    name: '  Alice <b>Smith</b>\u0007 ', email: 'Alice@Example.com', phone: '+91 98765-43210', birthday: '1990-04-23',
+    theme: 'light', accent: 'green', grid: 'large', start: 'favorites', avatar: img.id, isAdmin: true, hash: 'x',
+  } });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.json.name, 'Alice <b>Smith</b>', 'trimmed, control chars removed (HTML is escaped by the UI)');
+  assert.strictEqual(r.json.email, 'alice@example.com');
+  assert.deepStrictEqual([r.json.theme, r.json.accent, r.json.grid, r.json.start], ['light', 'green', 'large', 'favorites']);
+  assert.strictEqual(r.json.avatar.id, img.id);
+  assert.ok(!('isAdmin' in app.store.data.users.alice.profile) && app.store.data.users.alice.hash !== 'x', 'unknown fields ignored');
+  for (const bad of [{ email: 'nope' }, { phone: 'call me' }, { birthday: '2999-01-01' }, { birthday: '1990-02-30' },
+    { theme: 'pink' }, { accent: '#fff' }, { grid: 'huge' }, { start: 'settings' }, { name: 'x'.repeat(61) }, { name: 42 },
+    { avatar: vid.id }, { avatar: '__proto__' }]) {
+    r = await request(base, 'PATCH', '/api/profile', { cookie, body: bad });
+    assert.strictEqual(r.status, 400, JSON.stringify(bad));
+  }
+  r = await request(base, 'PATCH', '/api/profile', { cookie: bobCookie, body: { avatar: img.id } });
+  assert.strictEqual(r.status, 400, "cannot use someone else's photo as avatar");
+  r = await request(base, 'GET', '/api/profile', { cookie: bobCookie });
+  assert.strictEqual(r.json.name, '', "bob doesn't see alice's details");
+  r = await request(base, 'GET', '/api/status', { cookie });
+  assert.strictEqual(r.json.profile.accent, 'green');
+  assert.strictEqual(r.json.profile.birthday, '1990-04-23');
+  r = await request(base, 'GET', '/api/admin/overview');
+  assert.strictEqual(r.json.users.find((u) => u.id === 'alice').name, 'Alice <b>Smith</b>');
+  assert.ok(!JSON.stringify(r.json).includes('alice@example.com'), 'admin overview does not expose contact details');
+  r = await request(base, 'PATCH', '/api/profile', { cookie, body: { email: '', phone: '', birthday: '', avatar: null } });
+  assert.strictEqual(r.status, 200, 'fields can be cleared');
+  assert.strictEqual(r.json.avatar, null);
+  assert.strictEqual(r.json.name, 'Alice <b>Smith</b>', 'partial update keeps other fields');
+
   r = await request(base, 'GET', '/api/media?q=2023-10', { cookie });
   assert.strictEqual(r.json.total, 1);
   r = await request(base, 'GET', '/api/media?view=videos', { cookie });
