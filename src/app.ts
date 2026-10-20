@@ -23,6 +23,7 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const STATIC_MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json',
+  '.ttf': 'fonts/ttf',
 };
 
 async function isWritable(dir) {
